@@ -1,0 +1,53 @@
+settings:
+  workday_start_hour: 7  # Done/Todo boundary (07:00 AM)
+  slack_users_file: slack_users.json  # Slack user data (preprocessed)
+  jira_project: GEN  # Jira project key
+  slack_channels:
+    common_unit:
+      - id: C0A520V6KE1
+        name: 03_unit_common
+        description: "공통 Unit 스크럼 게시 및 작업 논의"
+  vacation_channel:
+    id: C04G8QTRF6C
+    name: 01_vacation
+    lookback_days: 30
+  scrum_channels:
+    common_unit:
+      id: C0A520V6KE1
+      name: 03_unit_common
+
+teams:
+  common_unit:
+    display_name: 공통 Unit
+    jira_project: GEN
+    members:
+      - name: 윤성준
+        jira_display_name: 윤성준
+        jira_email: sjyoon@bhsn.ai
+        github_username: ""
+        slack_id: U092LHJH732
+        title: "Frontend Developer"
+      - name: 이희재
+        jira_display_name: Heejae Lee
+        jira_email: hjlee@bhsn.ai
+        github_username: ""
+        slack_id: U058T7JSQDR
+        title: "Backend Engineer"
+      - name: 김누리
+        jira_display_name: 김누리
+        jira_email: nrkim@bhsn.ai
+        github_username: ""
+        slack_id: U09EFFCUA2J
+        title: "Product Owner"
+      - name: 김병호
+        jira_display_name: 김병호
+        jira_email: bhkim@bhsn.ai
+        github_username: ""
+        slack_id: U074BQ5V44F
+        title: "QA Engineer"
+      - name: 금희성
+        jira_display_name: 금희성
+        jira_email: hskeum@bhsn.ai
+        github_username: hskeum-dev
+        slack_id: U09EFF9UQ30
+        title: "Backend Engineer"
