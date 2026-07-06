@@ -48,11 +48,17 @@ Allibee 프론트엔드 작업에서 PR 생성 전 품질 점검과 PR 생성을
     - 가능하면 관련 테스트 실행
 6. PR 생성
     - `gh auth status` 확인
-    - 가능하면 `gh pr create`로 직접 PR 생성
+    - 가능하면 `gh pr create --draft`로 Draft PR 생성
     - PR 본문에 변경 요약, 테스트, 리스크를 포함
+7. 프리뷰 배포 댓글 작성
+    - PR 생성 직후 아래 두 개의 댓글을 **각각 별도 댓글로** 등록한다 (프리뷰 배포 트리거).
+    - `gh pr comment <pr-number> --body "/preview:contract"`
+    - `gh pr comment <pr-number> --body "/preview:cue"`
 
 ## PR 생성 규칙
 
+-   PR은 항상 **Draft**로 생성한다 (`gh pr create --draft`). 리뷰 준비가 되면 사용자가 직접 Ready for review로 전환한다.
+-   PR 생성 후 `/preview:contract`, `/preview:cue` 댓글을 각각 등록하여 프리뷰 배포를 트리거한다.
 -   커밋 메시지는 브랜치명 / 뒷부분을 접두사로 하고 뒤에 내용은 한글로 작성
 -   사용자가 별도 지시하지 않으면 현재 브랜치를 기준으로 PR을 생성한다.
 -   **절대 새 브랜치를 생성하지 않는다.** 이미 사용자가 체크아웃한 작업 브랜치에서만 점검/커밋/PR 생성을 진행한다.
