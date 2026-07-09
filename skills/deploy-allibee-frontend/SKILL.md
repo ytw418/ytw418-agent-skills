@@ -1,6 +1,6 @@
 ---
 name: deploy-allibee-frontend
-description: allibee-frontend 레포의 앨리비(contract)/큐(cue) 앱을 dev·demo·prod 환경에 배포한다. 배포 브랜치(develop, master, production, cue/master, cue/production)를 리베이스로 최신화하고 환경별 GitHub Actions 워크플로우를 실행한다. 사용자가 '앨리비 배포', '큐 배포', 'dev2 배포', '데모 배포', '프로드 배포', 'cue 배포', 'contract 배포', 'deploy allibee', 'deploy cue' 등을 요청할 때 사용한다.
+description: allibee-frontend 레포의 앨리비(contract)/큐(cue) 앱을 dev·demo·prod 환경에 배포한다. 배포 브랜치(develop, master, production, cue/master, cue/production)를 리베이스로 최신화하고 환경별 GitHub Actions 워크플로우를 실행하며, demo 배포 시 새 커밋의 Jira 티켓을 추출해 QA존 Slack 채널에 공지한다. 사용자가 '앨리비 배포', '큐 배포', 'dev2 배포', '데모 배포', '프로드 배포', 'cue 배포', 'contract 배포', 'deploy allibee', 'deploy cue' 등을 요청할 때 사용한다.
 ---
 
 # Deploy Allibee Frontend
@@ -55,6 +55,12 @@ git -C "$REPO" log --oneline -1 origin/develop
 
 ### demo / prod 환경
 
+리베이스 전에 **배포 브랜치의 기존 원격 커밋을 기록**한다 (demo Slack 공지의 커밋 범위 계산에 사용):
+
+```bash
+OLD_HEAD=$(git -C "$REPO" rev-parse origin/<배포브랜치>)
+```
+
 배포 매핑 표의 **소스 브랜치** 기준으로 worktree에서 리베이스:
 
 ```bash
@@ -94,6 +100,33 @@ gh run list --workflow=<워크플로우파일> --limit 1 --json databaseId,headB
 - 실패 시 `gh run view <databaseId> --log-failed`로 원인을 파악해 보고한다.
 
 완료 후 요약: 앱/환경별로 최신화된 커밋(`git -C "$REPO" log --oneline -1 origin/<배포브랜치>`), 실행한 액션, run URL. 배포 알림은 Slack `dev_deploy`(dev)/`prod_deploy`(prod) 채널에 자동 게시된다.
+
+## Step 4: QA존 Slack 공지 (demo 배포 전용)
+
+**demo 배포일 때만** 수행한다 (dev/prod는 해당 없음).
+
+이번 배포로 새로 들어간 커밋들에서 Jira 티켓 코드를 추출한다:
+
+```bash
+git -C "$REPO" fetch origin
+git -C "$REPO" log --pretty=%s "$OLD_HEAD"..origin/<배포브랜치> \
+  | grep -oE '[A-Z][A-Z0-9]*-[0-9]+' | awk '!seen[$0]++'
+```
+
+- `$OLD_HEAD`는 Step 1에서 기록한 리베이스 전 원격 커밋.
+- 새 커밋이 없으면(빈 결과 + 범위 없음) 공지를 생략하고 사용자에게 알린다.
+- 티켓 코드가 없는 커밋만 있으면, 티켓 리스트 대신 커밋 제목을 나열할지 사용자에게 확인한다.
+
+메시지 포맷 (이 형식을 그대로 사용):
+
+```text
+QA존에 아래 내용들 배포 중 입니다 확인 부탁드립니다.
+GEN-1224
+ALLIBEE-223
+ALLIBEE-224
+```
+
+작성한 메시지를 사용자에게 보여주고 확인받은 뒤, Slack MCP의 `slack_send_message` 도구로 채널 `C06E7CC0FMZ`에 전송한다. Slack MCP를 쓸 수 없으면 메시지를 복사 가능한 형태로 사용자에게 전달한다.
 
 ## 주의사항
 
