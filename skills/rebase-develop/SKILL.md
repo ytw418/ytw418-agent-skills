@@ -81,16 +81,24 @@ for b in <체인 브랜치들>; do echo "$b $(git rev-parse "$b")"; done
 
 ## Step 3: 체인 순서대로 리베이스
 
+사용자의 메인 체크아웃을 방해하지 않도록 **현재 브랜치가 아닌 브랜치는 임시 worktree에서 리베이스한다.** `git rebase <base> <branch>`는 해당 브랜치를 checkout하므로 메인 체크아웃에서 실행하면 작업 중인 브랜치가 바뀐다.
+
+```bash
+WT="${TMPDIR:-/tmp}/rebase-develop-$$"
+git worktree add --detach "$WT"
+```
+
 **최하단 브랜치** (develop 바로 위):
 
 ```bash
-git rebase origin/develop <bottom-branch>
+git rebase origin/develop                          # 현재 브랜치인 경우 (메인 체크아웃, 그 자체가 사용자의 작업)
+git -C "$WT" rebase origin/develop <bottom-branch> # 현재 브랜치가 아닌 경우 (worktree)
 ```
 
-**그 위의 각 브랜치** (아래에서 위로, 순서 엄수):
+**그 위의 각 브랜치** (아래에서 위로, 순서 엄수) — 현재 브랜치가 아니면 항상 `git -C "$WT"`:
 
 ```bash
-git rebase --onto <parent-branch> <parent의_리베이스_전_커밋> <child-branch>
+git -C "$WT" rebase --onto <parent-branch> <parent의_리베이스_전_커밋> <child-branch>
 ```
 
 `--onto`의 두 번째 인자는 반드시 Step 2에서 기록한 **부모의 리베이스 전 커밋**이어야 한다. 부모의 현재(리베이스 후) 커밋을 쓰면 자식의 커밋이 중복되거나 유실된다.
@@ -99,18 +107,21 @@ git rebase --onto <parent-branch> <parent의_리베이스_전_커밋> <child-bra
 
 ### 충돌 발생 시
 
+worktree에서 리베이스 중이었다면 아래 명령을 모두 worktree(`git -C "$WT"`, 파일 수정은 `$WT` 안의 파일) 기준으로 수행한다. 메인 체크아웃은 영향받지 않는다.
+
 1. `git status`와 `git diff`로 충돌 내용을 파악해 해결을 시도한다.
 2. 의미가 불확실한 충돌(양쪽 다 유효한 로직 변경)은 임의로 해결하지 말고 사용자에게 양쪽 내용을 보여주고 선택받는다.
 3. 해결 후 `git add <files> && git rebase --continue` (커밋 메시지 편집기가 뜨지 않게 `GIT_EDITOR=true` 사용 가능).
 4. 포기할 경우 `git rebase --abort` 후, 이미 리베이스된 하위 브랜치들도 Step 2의 기록으로 복구할지 확인:
 
 ```bash
-git checkout <branch> && git reset --hard <리베이스_전_커밋>
+git branch -f <branch> <리베이스_전_커밋>   # 현재 브랜치가 아닌 경우
+git reset --hard <리베이스_전_커밋>          # 현재 브랜치인 경우
 ```
 
 ## Step 4: 마무리 및 push
 
-1. 원래 작업하던 브랜치로 checkout, stash 했다면 `git stash pop`.
+1. worktree 정리: `git worktree remove "$WT"` (리베이스 중단 상태로 남았으면 `--force`). stash 했다면 `git stash pop`.
 2. 결과 요약: 브랜치별 리베이스 성공/스킵/실패 여부.
 3. push는 사용자 확인 후에만:
 
