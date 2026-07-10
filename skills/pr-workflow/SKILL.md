@@ -69,6 +69,24 @@ Allibee 프론트엔드 작업에서 PR 생성 전 품질 점검과 PR 생성을
 -   PR 생성 전 점검에서 발견한 이슈는 우선 수정하지말고 알려만 준다, 수정 불가 항목은 PR 본문에 명시한다.
 -   자동 수정이 위험한 항목은 사용자에게 확인 후 진행한다.
 
+### 기존 PR 업데이트 시 프리뷰 갱신
+
+-   이미 생성된 PR에 커밋을 추가로 푸시한 경우, 기존 프리뷰 트리거 댓글을 현재 사용자 작성분에 한해 삭제한 뒤 새 `preview:cue` 댓글을 등록한다.
+-   PR 본문/스크린샷과 일반 리뷰 댓글은 삭제하지 않는다.
+-   기존 트리거 댓글이 없어도 새 댓글 등록을 계속한다.
+
+```bash
+repo=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
+pr=$(gh pr view --json number --jq .number)
+login=$(gh api user --jq .login)
+gh api "repos/$repo/issues/$pr/comments" --paginate \
+  --jq ".[] | select(.user.login == \"$login\" and (.body | test(\"^/?preview:\"))) | .id" |
+while read -r comment_id; do
+  [ -n "$comment_id" ] && gh api -X DELETE "repos/$repo/issues/comments/$comment_id"
+done
+gh api "repos/$repo/issues/$pr/comments" -f body='preview:cue'
+```
+
 ## 아래 부터 pr 양식
 
 ### 개요
