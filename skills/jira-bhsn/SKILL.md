@@ -9,6 +9,10 @@ Jira 티켓 기반으로 브랜치 생성 → 개발 → PR → 리뷰까지의 
 
 > **Jira 댓글 작성 금지 (MANDATORY):** 어떤 단계에서도 Jira 티켓에 댓글(comment)을 작성하지 않는다 (`jira_add_comment`, `addCommentToJiraIssue` 등 사용 금지). 진행 상황 공유는 티켓 상태 전환과 PR로만 한다.
 
+> **Jira 상태 임의 변경 금지 (MANDATORY):** 사용자가 명시적으로 요청했거나 변경할 상태를 사용자에게 사전 확인받은 경우에만 티켓 상태를 전환한다. 작업 시작, PR 생성, 리뷰 준비 완료 등의 이벤트만으로 상태를 자동 변경하지 않는다.
+
+> **QA 상태 전환 금지 (MANDATORY):** Jira 티켓을 `QA`, `QA 요청`, `QA 진행` 등 QA 관련 상태로 변경하지 않는다. PR 생성, 리뷰 완료, 배포 완료 또는 테스트 통과를 QA 상태 전환의 근거로 추론하지 않는다.
+
 ## 1. 티켓 식별 (작업 시작 전 필수)
 
 **코드를 작성하기 전에 반드시 Jira 티켓을 식별한다.**
@@ -50,7 +54,9 @@ Jira 티켓 기반으로 브랜치 생성 → 개발 → PR → 리뷰까지의 
 
 ## 4. 작업 중
 
-- `jira_get_transitions` + `jira_transition_issue`로 티켓 상태 변경 (e.g. "To Do" → "In Progress").
+- 티켓 상태 변경이 필요해 보여도 먼저 현재 상태와 변경하려는 상태를 사용자에게 알리고 확인받는다.
+- 사용자가 명시적으로 상태 변경을 요청한 경우에만 `jira_get_transitions` + `jira_transition_issue`를 사용한다 (e.g. "To Do" → "In Progress").
+- QA 관련 상태로의 전환은 제안하거나 실행하지 않는다.
 - Jira 댓글은 작성하지 않는다.
 
 ## 5. PR 워크플로우
@@ -59,18 +65,19 @@ Jira 티켓 기반으로 브랜치 생성 → 개발 → PR → 리뷰까지의 
    ```bash
    gh pr create --base develop --draft --title "BA-XXXX Short description" --body "..."
    ```
+   - PR 제목의 Jira 티켓 코드는 대괄호로 감싸지 않는다. 올바른 형식은 `BA-XXXX Short description`이다.
 2. 추가 커밋은 같은 브랜치에 push — draft PR이 자동 업데이트.
 3. **작업 완료 후** (테스트/스타일 통과) ready for review로 전환:
    ```bash
    gh pr ready
    ```
-4. PR 오픈 후 Jira 티켓을 "In Review"로 전환한다. PR 링크를 Jira 댓글로 추가하지 않는다.
+4. PR 오픈 후에도 Jira 티켓을 자동으로 "In Review"로 전환하지 않는다. 사용자가 요청하거나 사전 확인한 경우에만 전환한다. PR 링크를 Jira 댓글로 추가하지 않는다.
 
 **단일 커밋 변경이라도 draft → ready 단계를 생략하지 않는다.**
 
 ## 6. 완료 후
 
-- 사용자 확인 후 티켓 상태 전환 (e.g. "In Review" 또는 "Done").
+- 티켓 상태 전환이 필요하면 목표 상태(e.g. "In Review" 또는 "Done")를 사용자에게 명시하고 확인받은 뒤 전환한다.
 - 작업 내용 요약은 사용자에게 직접 전달한다 — Jira 댓글로 남기지 않는다.
 
 ## 7. 문서화 (선택)
