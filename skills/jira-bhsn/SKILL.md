@@ -57,7 +57,7 @@ Jira 티켓 기반으로 브랜치 생성 → 개발 → PR → 리뷰까지의 
 
 1. **첫 커밋 push 후** 즉시 **draft PR** 생성 (타겟: `develop`):
    ```bash
-   gh pr create --base develop --draft --title "[BA-XXXX] Short description" --body "..."
+   gh pr create --base develop --draft --title "BA-XXXX Short description" --body "..."
    ```
 2. 추가 커밋은 같은 브랜치에 push — draft PR이 자동 업데이트.
 3. **작업 완료 후** (테스트/스타일 통과) ready for review로 전환:
@@ -83,7 +83,7 @@ PR 오픈 + Jira 업데이트 완료 후 사용자에게 문서화 여부를 질
 - API 인터페이스 변경, 새 기능, 작업 상태, 주요 결정 사항, 마이그레이션 안내
 
 포맷 규칙:
-- 제목/본문 **한국어** 작성 — e.g. `[BA-2031] 파일 파싱 실패 시 INTERRUPT 필드 추가`
+- 제목/본문 **한국어** 작성 — e.g. `BA-2031 파일 파싱 실패 시 INTERRUPT 필드 추가`
 - `jira_create_remote_issue_link`로 Confluence 문서를 Jira 티켓에 연결.
 - 기존 스프린트/기능 페이지가 있으면 중복 생성 대신 업데이트.
 
