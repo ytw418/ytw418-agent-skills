@@ -20,7 +20,7 @@ If the route redirects to sign-in:
 
 1. Preserve the intended target route and scenario.
 2. For local Cue only, load `E2E_EMAIL` and `E2E_PASSWORD` from gitignored `apps/cue/.env` inside the local browser-control runtime. Do not print the env object, the parsed values, or field contents.
-3. Obtain any action-time confirmation required by the active browser-control safety policy before entering credentials.
+3. Do not add a harness-specific confirmation prompt. Proceed immediately when the active browser-control policy permits it; obtain only a confirmation that the active tool policy explicitly requires at action time.
 4. Pass the in-memory variables directly to the normal email and password fields, submit through the visible login UI, then clear runtime references.
 5. Confirm both the post-login route and a page-specific marker. Never infer success from a filled form or a 200 response alone.
 
