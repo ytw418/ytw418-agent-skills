@@ -9,6 +9,8 @@ Treat browser verification as a completion gate, not a final glance. A UI task i
 
 Use the `figma` skill for the exact design node. Choose authenticated browser control according to the rules below; this workflow is not tied to Playwright. Use browser page screenshots, never desktop or whole-window screenshots, as comparison evidence.
 
+Default to the user's real Chrome session for local interactive verification when the Chrome extension connection is available. Use isolated Playwright Chromium for deterministic repeat capture, disposable authentication, CI-like checks, or when Chrome is unavailable. When the user explicitly chooses either browser, preserve that choice.
+
 ## Required inputs
 
 Resolve these from the task, Jira, Figma, the running app, and the repository before verification:
@@ -45,9 +47,9 @@ The frame dimensions define the primary browser viewport unless the design expli
 
 Respect an explicit browser choice from the user. Use the first viable path:
 
-1. **Existing Chrome session:** For Browser extension or Computer Use work, prefer the user's existing Chrome session. It preserves login and supports exploratory multi-step UI checks.
+1. **Existing Chrome session:** Prefer the user's open Chrome for local interactive verification. It preserves the real profile, login, extensions, fonts, and browser settings. Read and follow [references/existing-chrome.md](references/existing-chrome.md).
 2. **Opaque env login:** The user has authorized automatic login to the local Cue development app using the dedicated `E2E_EMAIL` and `E2E_PASSWORD` values in the gitignored `apps/cue/.env`. A local automation runtime may read those named variables and pass variable references directly to the normal login form without emitting, echoing, interpolating into commands, or returning their values to the model.
-3. **Playwright capture:** For a deterministic route screenshot, use the repository runner below. It performs the opaque env login in an isolated browser, restricts credential submission to HTTPS loopback URLs, and does not persist auth state.
+3. **Playwright Chromium capture:** For a deterministic or isolated route screenshot, use the repository runner below. It performs the opaque env login in an isolated browser, restricts credential submission to HTTPS loopback URLs, and does not persist auth state. This is the fallback or repeatability path, not a substitute for explicitly requested Chrome verification.
 4. **User handoff:** Ask the user to log in only when no authenticated session exists and the selected tool cannot inject the env values opaquely.
 
 ```bash
