@@ -56,8 +56,11 @@ npm run visual:cue:capture -- \
   --path '/ko/{workspace}/esign/' \
   --viewport 1440x1024 \
   --wait-for '[data-testid="stable-page-marker"]' \
+  --dismiss-selector '[aria-label="개발 도구 닫기"]' \
   --output artifacts/<label>/visual/<scenario>/actual-01.png
 ```
+
+Use `--dismiss-selector` only for an unrelated overlay that exposes a real user-visible close control. The runner clicks that control and records the selector in screenshot metadata; do not hide or remove product DOM with injected JavaScript or CSS. Use `--capture-selector` when the Figma reference is an element or app-root crop, but first inspect the saved result because fixed-position sibling overlays may still paint over an element screenshot.
 
 For interactions beyond navigation, reuse an existing focused Playwright scenario or create a task-scoped scenario that uses the same env variables through Cue's test setup. Browser extension and Computer Use may instead drive the existing Chrome session. Do not add a development-only login button, auth bypass, hardcoded credential, or client-side env exposure to the application.
 
@@ -114,6 +117,7 @@ Capture rules:
 - use a page or element screenshot from the controlled browser;
 - default to the current viewport, not `fullPage`; use full-page capture only when the Figma reference is explicitly a full page;
 - do not include browser chrome, DevTools, unrelated tabs, the desktop, or another monitor;
+- dismiss an unrelated development overlay through its real close control and record that action; do not remove it by mutating DOM or injecting capture-only CSS;
 - capture after confirming the scenario state, not immediately after navigation or click;
 - name the scenario and iteration deterministically; never overwrite the reference or earlier iteration;
 - inspect the saved screenshot itself before comparing it. Confirm dimensions, target route/state, absence of login UI, and absence of accidental overlays such as tooltips or focus rings unless they are the intended state.
