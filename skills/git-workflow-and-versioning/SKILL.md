@@ -301,18 +301,18 @@ For every commit:
 
 ## PR 미리보기 갱신
 
-현재 브랜치가 열려 있는 PR의 화면 변경을 커밋하고 원격에 푸시한 경우, 미리보기 갱신을 위해 기존 `preview:` 트리거 댓글을 정리한 뒤 새 트리거를 등록한다. PR 본문이나 일반 리뷰 댓글은 삭제하지 않는다.
+현재 브랜치가 열려 있는 PR의 화면 변경을 커밋하고 원격에 푸시한 경우, 미리보기 갱신을 위해 기존 `/preview:` 트리거 댓글을 정리한 뒤 새 트리거를 등록한다. PR 본문이나 일반 리뷰 댓글은 삭제하지 않는다.
 
 ```bash
 repo=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
 pr=$(gh pr view --json number --jq .number)
 login=$(gh api user --jq .login)
 gh api "repos/$repo/issues/$pr/comments" --paginate \
-  --jq ".[] | select(.user.login == \"$login\" and (.body | test(\"^preview:\"))) | .id" |
+  --jq ".[] | select(.user.login == \"$login\" and (.body | test(\"^/?preview:\"))) | .id" |
 while read -r comment_id; do
   [ -n "$comment_id" ] && gh api -X DELETE "repos/$repo/issues/comments/$comment_id"
 done
-gh api "repos/$repo/issues/$pr/comments" -f body='preview:cue'
+gh api "repos/$repo/issues/$pr/comments" -f body='/preview:cue'
 ```
 
-`preview:cue` 댓글 등록은 반드시 푸시가 성공한 뒤 수행한다. 기존 트리거 댓글이 없으면 삭제 단계는 건너뛰고 새 댓글만 등록한다.
+`/preview:cue` 댓글 등록은 반드시 푸시가 성공한 뒤 수행한다. 기존 트리거 댓글이 없으면 삭제 단계는 건너뛰고 새 댓글만 등록한다.

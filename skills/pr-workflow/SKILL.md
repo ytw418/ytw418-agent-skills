@@ -53,8 +53,8 @@ Allibee 프론트엔드 작업에서 PR 생성 전 품질 점검과 PR 생성을
 7. 프리뷰 배포 댓글 작성
     - PR 생성 직후 **변경된 앱에 해당하는 프리뷰 댓글만** 등록한다 (프리뷰 배포 트리거).
     - 변경 앱 판별: `git diff --name-only <base>...HEAD` 경로 기준
-        - `apps/contract/*` 변경 → `gh pr comment <pr-number> --body "preview:contract"`
-        - `apps/cue/*` 변경 → `gh pr comment <pr-number> --body "preview:cue"`
+        - `apps/contract/*` 변경 → `gh pr comment <pr-number> --body "/preview:contract"`
+        - `apps/cue/*` 변경 → `gh pr comment <pr-number> --body "/preview:cue"`
         - 두 앱 모두 변경 → 두 댓글을 **각각 별도 댓글로** 등록
         - 공용 코드(`packages/*`, `lib/*` 등)만 변경 → 영향 받는 앱 기준으로 판단하고, 불분명하면 두 댓글 모두 등록
     - 변경과 무관한 앱의 프리뷰 댓글은 등록하지 않는다 (불필요한 CI 낭비 방지).
@@ -62,7 +62,7 @@ Allibee 프론트엔드 작업에서 PR 생성 전 품질 점검과 PR 생성을
 ## PR 생성 규칙
 
 -   PR은 항상 **Draft**로 생성한다 (`gh pr create --draft`). 리뷰 준비가 되면 사용자가 직접 Ready for review로 전환한다.
--   PR 생성 후 **변경된 앱의 프리뷰 댓글만** 등록한다 (contract 작업 → `preview:contract`, cue 작업 → `preview:cue`, 둘 다 변경 시에만 둘 다).
+-   PR 생성 후 **변경된 앱의 프리뷰 댓글만** 등록한다 (contract 작업 → `/preview:contract`, cue 작업 → `/preview:cue`, 둘 다 변경 시에만 둘 다).
 -   커밋 메시지는 브랜치명 / 뒷부분을 접두사로 하고 뒤에 내용은 한글로 작성
 -   사용자가 별도 지시하지 않으면 현재 브랜치를 기준으로 PR을 생성한다.
 -   **절대 새 브랜치를 생성하지 않는다.** 이미 사용자가 체크아웃한 작업 브랜치에서만 점검/커밋/PR 생성을 진행한다.
@@ -71,7 +71,7 @@ Allibee 프론트엔드 작업에서 PR 생성 전 품질 점검과 PR 생성을
 
 ### 기존 PR 업데이트 시 프리뷰 갱신
 
--   이미 생성된 PR에 커밋을 추가로 푸시한 경우, 기존 프리뷰 트리거 댓글을 현재 사용자 작성분에 한해 삭제한 뒤 새 `preview:cue` 댓글을 등록한다.
+-   이미 생성된 PR에 커밋을 추가로 푸시한 경우, 기존 프리뷰 트리거 댓글을 현재 사용자 작성분에 한해 삭제한 뒤 새 `/preview:cue` 댓글을 등록한다.
 -   PR 본문/스크린샷과 일반 리뷰 댓글은 삭제하지 않는다.
 -   기존 트리거 댓글이 없어도 새 댓글 등록을 계속한다.
 
@@ -84,7 +84,7 @@ gh api "repos/$repo/issues/$pr/comments" --paginate \
 while read -r comment_id; do
   [ -n "$comment_id" ] && gh api -X DELETE "repos/$repo/issues/comments/$comment_id"
 done
-gh api "repos/$repo/issues/$pr/comments" -f body='preview:cue'
+gh api "repos/$repo/issues/$pr/comments" -f body='/preview:cue'
 ```
 
 ## 아래 부터 pr 양식
