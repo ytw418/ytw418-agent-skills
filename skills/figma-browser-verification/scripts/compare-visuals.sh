@@ -3,10 +3,10 @@
 set -euo pipefail
 
 usage() {
-    echo "Usage: $0 <reference-image> <actual-image> <output-directory> [label]" >&2
+    echo "Usage: $0 <reference-image> <actual-image> <output-directory> [label] [ssim-threshold]" >&2
 }
 
-if [[ $# -lt 3 || $# -gt 4 ]]; then
+if [[ $# -lt 3 || $# -gt 5 ]]; then
     usage
     exit 2
 fi
@@ -15,6 +15,7 @@ reference_path=$1
 actual_path=$2
 output_dir=$3
 label=${4:-comparison}
+ssim_threshold=${5:-0.995}
 
 for command_name in ffmpeg ffprobe shasum; do
     if ! command -v "$command_name" >/dev/null 2>&1; then
@@ -65,6 +66,17 @@ ffmpeg -y -v error -i "$reference_path" -i "$actual_path" \
 ffmpeg -y -v error -i "$reference_path" -i "$actual_path" \
     -filter_complex "[0:v][1:v]blend=all_mode=difference" -frames:v 1 "$diff_path"
 
+ssim_raw=$(ffmpeg -y -i "$reference_path" -i "$actual_path" -lavfi ssim -f null - 2>&1) || true
+ssim_score=$(printf '%s\n' "$ssim_raw" | grep -o 'All:[0-9.]*' | tail -1 | cut -d: -f2)
+
+if [[ -z "$ssim_score" ]]; then
+    ssim_score="unavailable"
+    verdict="REVIEW_IMAGES"
+else
+    verdict=$(awk -v score="$ssim_score" -v threshold="$ssim_threshold" \
+        'BEGIN { print (score + 0 >= threshold + 0) ? "PASS_SKIP_IMAGES" : "REVIEW_IMAGES" }')
+fi
+
 reference_sha=$(shasum -a 256 "$reference_path" | awk '{print $1}')
 actual_sha=$(shasum -a 256 "$actual_path" | awk '{print $1}')
 
@@ -75,13 +87,17 @@ actual_sha=$(shasum -a 256 "$actual_path" | awk '{print $1}')
     echo "reference_sha256=$reference_sha"
     echo "actual=$actual_path"
     echo "actual_sha256=$actual_sha"
+    echo "ssim_score=$ssim_score"
+    echo "ssim_threshold=$ssim_threshold"
+    echo "verdict=$verdict"
     echo "side_by_side=$side_by_side_path"
     echo "overlay=$overlay_path"
     echo "diff=$diff_path"
-    echo "note=Pixel output is evidence for inspection, not an automatic pass criterion."
+    echo "note=verdict gates whether image inspection is required for a recheck iteration; it is not an unconditional pass criterion on its own (see SKILL.md step 5-6). A small missing control can leave ssim_score high."
 } >"$report_path"
 
 echo "Visual comparison created:"
+echo "  ssim_score=$ssim_score (threshold=$ssim_threshold) -> $verdict"
 echo "  $side_by_side_path"
 echo "  $overlay_path"
 echo "  $diff_path"

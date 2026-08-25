@@ -128,12 +128,16 @@ When both images exist locally, run:
 
 ```bash
 ~/.codex/skills/figma-browser-verification/scripts/compare-visuals.sh \
-  <reference.png> <actual.png> <output-directory> [label]
+  <reference.png> <actual.png> <output-directory> [label] [ssim-threshold]
 ```
 
 The script intentionally rejects dimension mismatches. Correct the viewport or capture target instead of resizing evidence after capture.
 
+The script also writes `ssim_score`, `ssim_threshold` (default `0.995`), and `verdict` (`PASS_SKIP_IMAGES` or `REVIEW_IMAGES`) to `comparison.txt`. Read this score before opening any image — see the gating rule in step 5.
+
 ## 5. Compare and classify differences
+
+On the first comparison for a scenario, always inspect all five images regardless of `ssim_score` — a small missing control can leave the aggregate score high, and you do not yet know what differs. On a recheck iteration after an `IMPLEMENTATION` fix (step 6), read `ssim_score` and `verdict` from `comparison.txt` first: if `verdict=PASS_SKIP_IMAGES`, treat the targeted difference as resolved without opening the side-by-side, overlay, or diff image, then move on. If `verdict=REVIEW_IMAGES`, inspect the images as below.
 
 Inspect the reference, actual, side-by-side, overlay, and difference image. Compare in this order:
 

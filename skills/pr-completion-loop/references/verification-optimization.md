@@ -17,6 +17,12 @@
 
 브라우저 하네스 변경은 격리된 Playwright 캡처를 무효화하지만, 앱 UI 코드가 그대로라면 실제 Chrome 최종 증빙은 무효화하지 않는다. 앱 UI나 UI에 연결된 로직이 바뀌면 `browser-scenario`를 다시 수행하고, 시각 결과가 바뀔 수 있을 때만 `screenshot`을 갱신한다.
 
+## 어서션 우선, 이미지 판정은 조건부
+
+`browser-scenario`를 실행할 때 role·label·text·CSS 값 기반 `expect` 등 어서션으로 먼저 판정할 수 있으면 그것으로 게이트 결과를 확정한다. 어서션이 이미 pass/fail을 가렸으면 그 결과를 기록하고, 스크린샷은 최종 사용자 증빙 1장으로만 남긴다 — 매 recheck 라운드마다 새로 찍지 않는다.
+
+시각적 비교가 필요해 `figma-browser-verification`을 호출했다면 해당 스킬의 `compare-visuals.sh`가 `comparison.txt`에 쓰는 `ssim_score`/`verdict`를 먼저 읽는다. recheck 라운드에서 `verdict=PASS_SKIP_IMAGES`면 side-by-side·overlay·diff 이미지를 열지 않는다. 최초 비교 라운드에는 이 게이트를 적용하지 않는다(작은 누락 요소가 전체 점수를 가릴 수 있음).
+
 ## 로컬 캐시 하네스
 
 상태 파일은 기본적으로 `git rev-parse --git-path pr-completion-loop/verification-state.json`에 저장된다. linked worktree에서도 Git 내부 경로이므로 저장소에 커밋되지 않는다.
