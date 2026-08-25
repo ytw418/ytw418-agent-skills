@@ -82,7 +82,17 @@ PR을 사용자가 직접 머지할 수 있는 상태까지 반복해서 완성�
    - 시트 연동 후에도 잘못되면 구현 실패로 분류해 수정한다.
 4. 구현 수정 후 같은 조건으로 final screenshot을 새로 만든다.
 5. PR 증빙용 스크린샷 바이너리를 `.github/pr-assets`, `pr-assets`, `screenshots` 같은 경로에 커밋하지 않는다. GitHub PR 편집창이나 댓글에 업로드해 `https://github.com/user-attachments/assets/...` URL만 본문 또는 댓글에 남긴다.
-6. 스크린샷을 PR에 반영한 뒤 다음 하네스로 base 이후 전체 커밋과 PR 본문·댓글을 검사한다. UI 변경이면 `--require-attachment`를 사용한다.
+   - user-attachments 업로드는 GitHub 웹 세션(브라우저 쿠키)으로만 가능하다. 자동화 브라우저에 GitHub 로그인 세션이 없으면 사용자에게 미루지 말고 **전용 assets 레포 fallback을 반드시 실행**한다. gh 토큰만으로 동작하므로 스크린샷 첨부를 생략할 이유가 없다:
+
+     ```bash
+     base64 -i <스크린샷.png> -o /tmp/shot.b64
+     gh api --method PUT /repos/ytw418/pr-assets/contents/<대상레포명>/pr-<번호>/<파일명>.png \
+       -f message="Add <티켓> PR#<번호> screenshot" -f content="$(cat /tmp/shot.b64)" \
+       --jq '.content.download_url'
+     ```
+
+     반환된 `raw.githubusercontent.com` URL을 `![...](URL)`로 PR 본문 또는 댓글에 삽입한다.
+6. 스크린샷을 PR에 반영한 뒤 다음 하네스로 base 이후 전체 커밋과 PR 본문·댓글을 검사한다. UI 변경이면 `--require-attachment`를 사용한다(assets 레포 raw URL도 첨부로 인정).
 
    ```bash
    node ~/.codex/skills/pr-completion-loop/scripts/check-pr-screenshot-storage.js \
@@ -163,7 +173,7 @@ head SHA가 바뀌어도 모든 검증을 다시 시작하지 않는다. 먼저 
 - mergeable 상태이며 base 최신화가 끝났다.
 - 관련 i18n·type 생성 PR이 merge됐다.
 - 마지막 코드 변경 후 동일 조건의 final screenshot이 있다.
-- PR 증빙용 스크린샷이 base 이후 Git 히스토리에 없고, PR 본문 또는 댓글에는 GitHub `user-attachments` URL로 첨부됐다.
+- PR 증빙용 스크린샷이 base 이후 Git 히스토리에 없고, PR 본문 또는 댓글에는 GitHub `user-attachments` URL(웹 세션 없으면 `ytw418/pr-assets` raw URL fallback)로 첨부됐다.
 - `deep` 장기 실행이나 직전에 상태가 변한 CI·리뷰가 있으면 같은 SHA에서 30초 이상 간격의 두 번의 조회가 모두 clean이다. 일반 `fast`·`standard`는 마지막 단일 clean 조회로 충분하다.
 
 게이트를 통과해도 feature PR은 머지하지 않는다. 스크린샷과 결과를 PR에 남기고 사용자가 확인해 머지할 수 있도록 URL과 상태를 전달한다.

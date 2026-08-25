@@ -68,20 +68,25 @@ if (trackedEvidenceImages.length > 0) {
 
 const comments = (prData.comments || []).map((comment) => comment.body || '');
 const prContent = [prData.body || '', ...comments].join('\n');
+// 전용 assets 레포(ytw418/pr-assets)의 raw URL은 대상 저장소 히스토리를 오염시키지 않으므로 저장소 경로 검사에서 제외한다
+const externalAssetsUrl = /https:\/\/raw\.githubusercontent\.com\/ytw418\/pr-assets\//i;
 const repositoryEvidenceLinks = prContent
     .split('\n')
     .filter(
         (line) =>
-            evidenceDirectory.test(line) && /\.(avif|gif|jpe?g|png|webp)(?:[?#)\s]|$)/i.test(line),
+            !externalAssetsUrl.test(line) &&
+            evidenceDirectory.test(line) &&
+            /\.(avif|gif|jpe?g|png|webp)(?:[?#)\s]|$)/i.test(line),
     );
 
 if (repositoryEvidenceLinks.length > 0) {
     fail('PR 본문 또는 댓글이 저장소의 증빙용 이미지 경로를 참조합니다.', repositoryEvidenceLinks);
 }
 
-const attachmentPattern = /https:\/\/github\.com\/user-attachments\/assets\/[0-9a-f-]+/i;
+// user-attachments는 GitHub 웹 세션으로만 업로드 가능 — 세션이 없는 환경은 전용 assets 레포(raw URL) fallback을 허용한다
+const attachmentPattern = /https:\/\/github\.com\/user-attachments\/assets\/[0-9a-f-]+|https:\/\/raw\.githubusercontent\.com\/ytw418\/pr-assets\/[^\s)"']+\.(?:avif|gif|jpe?g|png|webp)/i;
 if (requireAttachment && !attachmentPattern.test(prContent)) {
-    fail('PR 본문 또는 댓글에서 GitHub user-attachments 스크린샷을 찾지 못했습니다.');
+    fail('PR 본문 또는 댓글에서 스크린샷 첨부(user-attachments 또는 ytw418/pr-assets raw URL)를 찾지 못했습니다.');
 }
 
 console.log(
