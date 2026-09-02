@@ -5,7 +5,7 @@ description: BHSN allibee-frontend PR을 생성한 뒤 검증, 수정, 리뷰·C
 
 # PR Completion Loop
 
-PR을 사용자가 직접 머지할 수 있는 상태까지 반복해서 완성한다. 우리가 만든 feature PR은 절대 머지하지 않는다. 자동 머지는 이 작업이 실행한 i18n·type GitHub Action의 생성 PR에만 허용한다.
+PR을 사용자가 직접 머지할 수 있는 상태까지 반복해서 완성한다. 우리가 만든 feature PR은 절대 머지하지 않는다. 자동 머지는 이 작업이 실행한 i18n·type GitHub Action의 생성 PR에만 허용한다. 머지가 허용된 경우 방식은 항상 **스쿼시 머지**(`gh pr merge --squash`)다 — merge commit이나 rebase merge를 사용하지 않는다.
 
 ## 선행 스킬
 
@@ -148,7 +148,7 @@ head SHA가 바뀌어도 모든 검증을 다시 시작하지 않는다. 먼저 
 2. generated locale 파일을 직접 수정하지 않는다.
 3. `AGENTS.md`가 시트 자동 입력을 금지하면 복사 가능한 행을 사용자에게 전달하고 시트 반영 확인을 기다린다. 이 단계는 생략하거나 우회하지 않는다.
 4. 시트 반영 확인 후 관련 i18n workflow를 실행하고 완료를 기다린다. [allibee-actions.md](references/allibee-actions.md)를 따른다.
-5. 생성 PR diff가 허용된 locale 경로에만 있는지 확인하고 checks 통과 후 생성 PR만 merge한다.
+5. 생성 PR diff가 허용된 locale 경로에만 있는지 확인하고 checks 통과 후 생성 PR만 스쿼시 머지(`gh pr merge --squash`)한다.
 6. 생성 결과가 없으면 대상 시트와 workflow 로그를 확인한다. generated 파일을 수동 생성하지 않는다.
 
 ## 8. 타입 생성 처리
@@ -157,7 +157,7 @@ head SHA가 바뀌어도 모든 검증을 다시 시작하지 않는다. 먼저 
 2. 실행 전 같은 고정 생성 브랜치의 open PR과 stale remote branch를 확인한다.
 3. stale branch의 소유권이 불명확하면 삭제하거나 덮어쓰지 않는다.
 4. workflow run ID를 고정해 완료를 기다린다.
-5. 생성 PR diff가 허용된 API generated 경로에만 있는지 확인하고 build와 checks 통과 후 생성 PR만 merge한다.
+5. 생성 PR diff가 허용된 API generated 경로에만 있는지 확인하고 build와 checks 통과 후 생성 PR만 스쿼시 머지(`gh pr merge --squash`)한다.
 6. 생성 PR이 없으면 `no changes`와 실패를 로그로 구분한다.
 
 ## 9. 생성 Action과 최신화
@@ -184,7 +184,7 @@ head SHA가 바뀌어도 모든 검증을 다시 시작하지 않는다. 먼저 
 - 위 스크립트 기준으로 PR 증빙용 스크린샷이 base 이후 Git 히스토리에 없고, PR 본문 또는 댓글에는 GitHub `user-attachments` URL(웹 세션 없으면 `ytw418/pr-assets` raw URL fallback)로 첨부됐다.
 - `deep` 장기 실행이나 직전에 상태가 변한 CI·리뷰가 있으면 같은 SHA에서 30초 이상 간격의 두 번의 조회가 모두 clean이다. 일반 `fast`·`standard`는 마지막 단일 clean 조회로 충분하다.
 
-게이트를 통과해도 feature PR은 머지하지 않는다. 스크린샷과 결과를 PR에 남기고 사용자가 확인해 머지할 수 있도록 URL과 상태를 전달한다.
+게이트를 통과해도 feature PR은 머지하지 않는다. 스크린샷과 결과를 PR에 남기고 사용자가 확인해 머지할 수 있도록 URL과 상태를 전달한다. feature PR도 팀 정책상 스쿼시 머지가 기본이므로 handoff에 스쿼시 머지 기준임을 명시한다.
 
 ## 11. deep 시간 예산 종료
 
