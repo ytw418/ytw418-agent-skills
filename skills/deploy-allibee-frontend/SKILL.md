@@ -1,6 +1,6 @@
 ---
 name: deploy-allibee-frontend
-description: allibee-frontend 레포의 앨리비(contract)/큐(cue) 앱을 dev·demo·prod 환경에 배포한다. 배포 브랜치(develop, master, production, cue/master, cue/production)를 리베이스로 최신화하고 환경별 GitHub Actions 워크플로우를 실행하며, demo 배포 시 새 커밋의 Jira 티켓을 추출해 QA존 Slack 채널에 공지한다. 사용자가 '앨리비 배포', '큐 배포', 'dev2 배포', '데모 배포', '프로드 배포', 'cue 배포', 'contract 배포', 'deploy allibee', 'deploy cue' 등을 요청할 때 사용한다.
+description: allibee-frontend 레포의 앨리비(contract)/큐(cue) 앱을 dev·demo·prod 환경에 배포한다. 배포 브랜치(develop, master, production, cue/master, cue/production)를 리베이스로 최신화하고 환경별 GitHub Actions 워크플로우를 실행하며, demo 배포 시 새 커밋의 Jira 티켓을 추출해 QA존 Slack 채널에 공지한다. 특정 커밋만 긴급 반영하는 핫픽스 배포(deploy/YYYY-MM-DD 브랜치 + 체리픽 + 브랜치 ref 직접 배포)도 지원한다. 사용자가 '앨리비 배포', '큐 배포', 'dev2 배포', '데모 배포', '프로드 배포', 'cue 배포', 'contract 배포', 'deploy allibee', 'deploy cue' 등을 요청할 때 사용한다.
 ---
 
 # Deploy Allibee Frontend
@@ -127,6 +127,40 @@ ALLIBEE-224
 ```
 
 작성한 메시지를 사용자에게 보여주고 확인받은 뒤, Slack MCP의 `slack_send_message` 도구로 채널 `C06E7CC0FMZ`에 전송한다. Slack MCP를 쓸 수 없으면 메시지를 복사 가능한 형태로 사용자에게 전달한다.
+
+## 핫픽스 배포 (특정 커밋만 프로드에 긴급 반영)
+
+develop 전체를 내리지 않고 특정 변경만 프로드에 반영할 때. **프로드 브랜치(`production`/`cue/production`)에 머지하지 않는다** — 배포 전용 브랜치를 만들어 그 브랜치를 ref로 직접 배포한다.
+
+### 브랜치 네이밍
+
+- 한 제품만 나갈 때: `deploy/<YYYY-MM-DD>` (예: `deploy/2026-09-02`)
+- 큐·앨리비가 **같은 날 함께** 나갈 때만 제품명을 넣어 구분: `deploy/cue/<YYYY-MM-DD>`, `deploy/contract/<YYYY-MM-DD>`
+
+### 절차
+
+```bash
+REPO=~/Desktop/bhsn/allibee-frontend
+git -C "$REPO" fetch origin --prune
+
+# 1) 프로드 브랜치 기준으로 임시 worktree + 배포 브랜치 생성
+git -C "$REPO" worktree add /tmp/hotfix-<제품> -b deploy/<날짜> origin/<프로드브랜치>
+
+# 2) develop에 머지된 해당 작업의 "머지 커밋"을 체리픽 (-m 1 필수)
+git -C /tmp/hotfix-<제품> cherry-pick -m 1 <머지커밋>
+
+# 3) 푸시 후 배포 브랜치를 ref로 프로드 워크플로우 실행
+git -C /tmp/hotfix-<제품> push -u origin deploy/<날짜>
+gh workflow run <프로드워크플로우> --ref deploy/<날짜>
+
+# 4) 임시 worktree 정리 — 남겨두면 브랜치가 잡혀 있어 다른 곳에서 체크아웃 불가
+git -C "$REPO" worktree remove /tmp/hotfix-<제품> --force
+```
+
+- 머지 커밋은 `git log origin/develop --merges --grep "<PR번호|티켓>"`으로 찾는다. 대상 변경이 프로드 브랜치에 이미 있는지는 `git merge-base --is-ancestor <커밋> origin/<프로드브랜치>`로 확인.
+- 두 제품 동시 배포면 각 프로드 브랜치(`origin/production`, `origin/cue/production`) 기준으로 브랜치를 각각 만들어 같은 커밋을 각각 체리픽한다.
+- **프로드 브랜치로 PR을 만들어 머지하지 않는다.** (실수로 머지했다면: 머지 전 커밋으로 `git push origin <커밋>:<프로드브랜치> --force-with-lease=<프로드브랜치>` 리셋. 또한 PR 머지 시 배포 브랜치가 자동 삭제되므로 재푸시 필요.)
+- 프로드 배포이므로 실행 직전 사용자 최종 확인은 동일하게 받는다. 이후 실행 확인·보고는 Step 3과 동일.
 
 ## 주의사항
 
