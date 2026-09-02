@@ -12,7 +12,7 @@ function run(command, args, options = {}) {
     return execFileSync(command, args, { encoding: 'utf8', ...options }).trim();
 }
 
-function fixture({ trackedImage = false, body = '', comments = [] }) {
+function fixture({ trackedImage = false, uiFile = false, body = '', comments = [] }) {
     const root = mkdtempSync(join(tmpdir(), 'pr-screenshot-storage-'));
     const bin = join(root, 'bin');
     mkdirSync(bin);
@@ -27,6 +27,10 @@ function fixture({ trackedImage = false, body = '', comments = [] }) {
     if (trackedImage) {
         mkdirSync(join(root, '.github', 'pr-assets'), { recursive: true });
         writeFileSync(join(root, '.github', 'pr-assets', 'screen.png'), 'png');
+    }
+    if (uiFile) {
+        mkdirSync(join(root, 'apps', 'cue', 'src'), { recursive: true });
+        writeFileSync(join(root, 'apps', 'cue', 'src', 'Input.svelte'), '<input />\n');
     }
     run('git', ['add', '.'], { cwd: root });
     run('git', ['commit', '-qm', 'head'], { cwd: root });
@@ -67,4 +71,21 @@ const missingAttachment = check({ body: '### 스크린샷\n없음' }, ['--requir
 assert.equal(missingAttachment.status, 1);
 assert.match(missingAttachment.stderr, /user-attachments/);
 
-console.log('check-pr-screenshot-storage 테스트 성공: 4개 시나리오');
+// UI 파일이 diff에 있으면 플래그 없이도 첨부를 자동 요구한다
+const uiAutoDetect = check({ uiFile: true, body: '### 스크린샷\n없음' });
+assert.equal(uiAutoDetect.status, 1);
+assert.match(uiAutoDetect.stderr, /UI 파일 변경 자동 감지/);
+
+const uiWithAttachment = check({
+    uiFile: true,
+    body: '![화면](https://raw.githubusercontent.com/ytw418/pr-assets/main/repo/pr-1/final.png)',
+});
+assert.equal(uiWithAttachment.status, 0, uiWithAttachment.stderr);
+
+const nonUiWithoutAttachment = check({ body: '문서 수정' });
+assert.equal(nonUiWithoutAttachment.status, 0, nonUiWithoutAttachment.stderr);
+
+const uiSkipped = check({ uiFile: true, body: '문서 수정' }, ['--skip-attachment']);
+assert.equal(uiSkipped.status, 0, uiSkipped.stderr);
+
+console.log('check-pr-screenshot-storage 테스트 성공: 8개 시나리오');

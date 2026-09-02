@@ -107,7 +107,9 @@ artifacts/<label>/visual/<scenario>/
   actual-01.png
   overlay-01.png
   diff-01.png
+  diff-amplified-01.png
   side-by-side-01.png
+  computed-styles.txt
   actual-final.png
   overlay-final.png
   diff-final.png
@@ -133,13 +135,25 @@ When both images exist locally, run:
 
 The script intentionally rejects dimension mismatches. Correct the viewport or capture target instead of resizing evidence after capture.
 
-The script also writes `ssim_score`, `ssim_threshold` (default `0.995`), and `verdict` (`PASS_SKIP_IMAGES` or `REVIEW_IMAGES`) to `comparison.txt`. Read this score before opening any image — see the gating rule in step 5.
+The script writes `ssim_score`, `ssim_threshold` (default `0.995`), `changed_pixel_ratio` (fraction of pixels differing beyond a small noise threshold), and `verdict` to `comparison.txt`, plus a `diff-amplified` image that makes hairline differences visible. `verdict=PASS_SKIP_IMAGES` requires both a high SSIM and `changed_pixel_ratio <= 0.001`; a 1px border color change keeps SSIM above 0.995 but fails the ratio gate. Read these values before opening any image — see the gating rule in step 5.
 
 ## 5. Compare and classify differences
 
-On the first comparison for a scenario, always inspect all five images regardless of `ssim_score` — a small missing control can leave the aggregate score high, and you do not yet know what differs. On a recheck iteration after an `IMPLEMENTATION` fix (step 6), read `ssim_score` and `verdict` from `comparison.txt` first: if `verdict=PASS_SKIP_IMAGES`, treat the targeted difference as resolved without opening the side-by-side, overlay, or diff image, then move on. If `verdict=REVIEW_IMAGES`, inspect the images as below.
+### Computed-style gate (hairline properties)
 
-Inspect the reference, actual, side-by-side, overlay, and difference image. Compare in this order:
+Pixel comparison cannot pass or fail hairline properties: a 1px border color change moves full-viewport SSIM by under 0.5% and is nearly invisible in a scaled-down screenshot. Verify these properties by value, not by pixels, for every materially changed element:
+
+1. From the Figma design context, record the exact expected values: stroke/border color and width, fill/background color, text color, border radius, font size and weight. Use the node's own values. A design-system or brand default (for example the primary green) is never a substitute for the value the node specifies; if an existing component's default differs from the node, override it or report the conflict — do not silently keep the default.
+2. In the live page, read the same properties from the target element with `getComputedStyle` (border-color, border-width, background-color, color, border-radius, font-size, font-weight) through the browser tool's evaluate capability.
+3. Compare numerically after normalizing formats (`rgb()` vs hex, `px` vs `rem` at the root font size).
+4. Any mismatch is `IMPLEMENTATION` (or `SPEC_AMBIGUITY` when product and Figma genuinely disagree) regardless of `ssim_score` or `verdict`. `PASS_SKIP_IMAGES` never overrides a computed-style mismatch.
+5. Save the expected/actual table to `computed-styles.txt` in the scenario directory and cite it in the completion report.
+
+### Image comparison
+
+On the first comparison for a scenario, always inspect all images including `diff-amplified` regardless of `ssim_score` — a small missing control can leave the aggregate score high, and you do not yet know what differs. On a recheck iteration after an `IMPLEMENTATION` fix (step 6), read `ssim_score` and `verdict` from `comparison.txt` first: if `verdict=PASS_SKIP_IMAGES`, treat the targeted difference as resolved without opening the side-by-side, overlay, or diff image, then move on. If `verdict=REVIEW_IMAGES`, inspect the images as below.
+
+Inspect the reference, actual, side-by-side, overlay, difference, and amplified-difference image. The raw diff hides subtle color deltas; `diff-amplified` is where a wrong border or divider color actually shows up. Compare in this order:
 
 1. page hierarchy, major regions, scroll position, and responsive layout;
 2. component geometry, alignment, spacing, and sizing;
@@ -180,6 +194,7 @@ Report `PASS` only when all are true:
 - exact Figma node, variant, and dimensions were recorded;
 - authenticated target route and intended data state were confirmed;
 - valid browser screenshots were inspected and compared;
+- computed styles of materially changed elements matched the Figma node values (`computed-styles.txt` exists for the scenario);
 - behavior requirements were exercised, not only the static image;
 - relevant console and network failures were checked;
 - material differences were fixed or explicitly accepted as known variance;

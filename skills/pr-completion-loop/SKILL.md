@@ -92,11 +92,11 @@ PR을 사용자가 직접 머지할 수 있는 상태까지 반복해서 완성�
      ```
 
      반환된 `raw.githubusercontent.com` URL을 `![...](URL)`로 PR 본문 또는 댓글에 삽입한다.
-6. 스크린샷을 PR에 반영한 뒤 다음 하네스로 base 이후 전체 커밋과 PR 본문·댓글을 검사한다. UI 변경이면 `--require-attachment`를 사용한다(assets 레포 raw URL도 첨부로 인정).
+6. 스크린샷을 PR에 반영한 뒤 다음 하네스로 base 이후 전체 커밋과 PR 본문·댓글을 검사한다. 하네스는 diff에 UI 파일(`.svelte`, `.tsx`, `.css` 등)이 있으면 **플래그 없이도 첨부를 자동 요구**한다(assets 레포 raw URL도 첨부로 인정). `--require-attachment`는 강제, `--skip-attachment`는 시각 변화가 정말 없는 UI 파일 변경(타입만 수정 등)에만 사유와 함께 사용한다.
 
    ```bash
    node ~/.codex/skills/pr-completion-loop/scripts/check-pr-screenshot-storage.js \
-     --pr <PR 번호> --repo bhsn-ai/allibee-frontend --require-attachment
+     --pr <PR 번호> --repo bhsn-ai/allibee-frontend
    ```
 
 7. 하네스가 저장소 이미지 경로를 발견하면 삭제 커밋만 추가하지 말고, feature 브랜치의 해당 커밋을 다시 작성해 base 이후 히스토리에서도 바이너리를 제거한다. 공개 feature 브랜치는 원격 SHA를 고정한 `--force-with-lease`로만 갱신한다.
@@ -173,7 +173,8 @@ head SHA가 바뀌어도 모든 검증을 다시 시작하지 않는다. 먼저 
 - mergeable 상태이며 base 최신화가 끝났다.
 - 관련 i18n·type 생성 PR이 merge됐다.
 - 마지막 코드 변경 후 동일 조건의 final screenshot이 있다.
-- PR 증빙용 스크린샷이 base 이후 Git 히스토리에 없고, PR 본문 또는 댓글에는 GitHub `user-attachments` URL(웹 세션 없으면 `ytw418/pr-assets` raw URL fallback)로 첨부됐다.
+- **완료 보고 직전에 `check-pr-screenshot-storage.js`를 실행해 성공했다.** 이 스크립트 실행은 모드·작업 크기와 무관하게 생략할 수 없는 마지막 게이트다. UI 변경 여부를 스스로 판단해 건너뛰지 않는다 — 스크립트가 diff에서 자동 판정한다. 성공 출력 한 줄(`uiChange=`, `attachmentRequired=`, `attachment=` 포함)을 최종 handoff에 그대로 인용한다. 이 출력이 없는 완료 보고는 완료가 아니다.
+- 위 스크립트 기준으로 PR 증빙용 스크린샷이 base 이후 Git 히스토리에 없고, PR 본문 또는 댓글에는 GitHub `user-attachments` URL(웹 세션 없으면 `ytw418/pr-assets` raw URL fallback)로 첨부됐다.
 - `deep` 장기 실행이나 직전에 상태가 변한 CI·리뷰가 있으면 같은 SHA에서 30초 이상 간격의 두 번의 조회가 모두 clean이다. 일반 `fast`·`standard`는 마지막 단일 clean 조회로 충분하다.
 
 게이트를 통과해도 feature PR은 머지하지 않는다. 스크린샷과 결과를 PR에 남기고 사용자가 확인해 머지할 수 있도록 URL과 상태를 전달한다.
@@ -192,6 +193,7 @@ head SHA가 바뀌어도 모든 검증을 다시 시작하지 않는다. 먼저 
 - feature PR과 자동 merge한 생성 PR URL
 - 최종 head SHA
 - 실행한 검증과 리뷰 대응
+- `check-pr-screenshot-storage.js` 성공 출력 한 줄
 - Figma node, route, viewport, final screenshot 경로
 - i18n·type Action 결과
 - baseline·환경·외부 차단 사항
