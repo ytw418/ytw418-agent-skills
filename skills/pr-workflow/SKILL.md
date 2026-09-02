@@ -58,6 +58,12 @@ Allibee 프론트엔드 작업에서 PR 생성 전 품질 점검과 PR 생성을
         - 두 앱 모두 변경 → 두 댓글을 **각각 별도 댓글로** 등록
         - 공용 코드(`packages/*`, `lib/*` 등)만 변경 → 영향 받는 앱 기준으로 판단하고, 불분명하면 두 댓글 모두 등록
     - 변경과 무관한 앱의 프리뷰 댓글은 등록하지 않는다 (불필요한 CI 낭비 방지).
+    - **댓글 본문은 반드시 슬래시로 시작하는 `/preview:<앱>` 한 줄이다. 슬래시 없는 `preview:cue`는 오류 없이 조용히 무시되어 프리뷰가 생성되지 않는다.** 등록 후 검증한다:
+        ```bash
+        gh pr view <pr-number> --json comments --jq '.comments[-1].body'   # 정확히 "/preview:<앱>" 인지
+        gh run list --workflow "[PREVIEW]UNIFIED" --limit 3 --json status,displayTitle,createdAt   # 1~2분 내 run 생성 확인
+        ```
+        run이 생성되지 않았으면 댓글 본문을 확인해 슬래시 누락이면 삭제 후 재등록한다.
 
 ## PR 생성 규칙
 
