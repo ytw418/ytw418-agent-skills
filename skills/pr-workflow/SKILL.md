@@ -51,8 +51,13 @@ Allibee 프론트엔드 작업에서 PR 생성 전 품질 점검과 PR 생성을
     - 가능하면 관련 테스트 실행
 6. PR 생성
     - `gh auth status` 확인
-    - 가능하면 `gh pr create --draft`로 Draft PR 생성
+    - 가능하면 `gh pr create --draft --assignee ytw418`로 Draft PR 생성 (Assignee는 항상 `ytw418`)
     - PR 본문에 변경 요약, 테스트, 리스크를 포함
+    - 생성 직후 Assignee가 실제로 등록됐는지 확인하고, 비어 있으면 보정한다:
+        ```bash
+        gh pr view <pr-number> --json assignees --jq '.assignees[].login'
+        gh pr edit <pr-number> --add-assignee ytw418   # 비어 있을 때만
+        ```
 7. 프리뷰 배포 댓글 작성
     - PR 생성 직후 **변경된 앱에 해당하는 프리뷰 댓글만** 등록한다 (프리뷰 배포 트리거).
     - 변경 앱 판별: `git diff --name-only <base>...HEAD` 경로 기준
@@ -74,6 +79,7 @@ Allibee 프론트엔드 작업에서 PR 생성 전 품질 점검과 PR 생성을
 ## PR 생성 규칙
 
 -   PR은 항상 **Draft**로 생성한다 (`gh pr create --draft`). 리뷰 준비가 되면 사용자가 직접 Ready for review로 전환한다.
+-   **PR Assignee는 항상 `ytw418`로 등록한다** (`gh pr create ... --assignee ytw418`). 생성 시 누락됐거나 기존 PR에 Assignee가 없으면 `gh pr edit <pr-number> --add-assignee ytw418`로 보정한다. 다른 담당자가 이미 지정돼 있으면 덮어쓰지 않고 사용자에게 알린다.
 -   PR 생성 후 **변경된 앱의 프리뷰 댓글만** 등록한다 (contract 작업 → `/preview:contract`, cue 작업 → `/preview:cue`, 둘 다 변경 시에만 둘 다).
 -   커밋 메시지는 브랜치명 / 뒷부분을 접두사로 하고 뒤에 내용은 한글로 작성
 -   사용자가 별도 지시하지 않으면 현재 브랜치를 기준으로 PR을 생성한다.

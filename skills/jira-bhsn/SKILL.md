@@ -63,9 +63,10 @@ Jira 티켓 기반으로 브랜치 생성 → 개발 → PR → 리뷰까지의 
 
 1. **첫 커밋 push 후** 즉시 **draft PR** 생성 (타겟: `develop`):
    ```bash
-   gh pr create --base develop --draft --title "BA-XXXX Short description" --body "..."
+   gh pr create --base develop --draft --assignee ytw418 --title "BA-XXXX Short description" --body "..."
    ```
    - PR 제목의 Jira 티켓 코드는 대괄호로 감싸지 않는다. 올바른 형식은 `BA-XXXX Short description`이다.
+   - **Assignee는 항상 `ytw418`로 등록한다.** 누락된 경우 `gh pr edit <pr-number> --add-assignee ytw418`로 보정한다.
 2. 추가 커밋은 같은 브랜치에 push — draft PR이 자동 업데이트.
 3. **작업 완료 후** (테스트/스타일 통과) ready for review로 전환:
    ```bash
