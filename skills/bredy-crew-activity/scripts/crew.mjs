@@ -18,6 +18,7 @@
  *   snapshot [--pages 5]                       최근 게시글·댓글을 .crew/snapshot.json 으로
  *   apply   <plan.json> [--dry-run] [--min-delay 4] [--max-delay 12]
  *   cleanup <log.jsonl> [--dry-run]            그 실행에서 만든 글·댓글만 지운다
+ *   profile <profile.json> [--dry-run]         크루 닉네임·프로필 사진·동네 노출을 바꾼다
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -54,6 +55,8 @@ const CREW_POST_CATEGORIES = ["동네", "자유", "질문", "정보", "자랑", 
 /** 한 번 실행에 너무 많이 쏟아지지 않게 막는 상한. */
 const RUN_LIMITS = { post: 15, comment: 60, like: 120, follow: 60, bloodline: 5 };
 const CREATE_BATCH_MAX = 20;
+/** 크루는 거래하지 않으므로 가게·판매자처럼 보이는 닉네임을 쓰지 않는다. */
+const SELLER_LIKE_NICK = /샵|shop|스토어|store|분양|판매|매장|마켓/i;
 
 /* ------------------------------------------------------------------ */
 /* 공통                                                               */
@@ -235,10 +238,10 @@ async function setup(flags) {
     for (let attempt = 0; attempt < 5 && !saved; attempt += 1) {
       const name = crewName(persona.nick, nameSuffix, attempt);
       try {
-        // regionVisible=false: 동네 브리더 목록·홈 동네 섹션에 크루를 넣지 않는다.
+        // regionVisible=true: 동네 브리더 목록·홈 동네 섹션에 크루도 보인다(2026-10-10 사용자 결정).
         await api("POST", "/api/users/me", {
           token: userToken,
-          body: { name, bio, regionSido, regionSigungu, regionVisible: false, categoryOnboarded: true },
+          body: { name, bio, regionSido, regionSigungu, regionVisible: true, categoryOnboarded: true },
         });
         saved = name;
       } catch (error) {
@@ -495,6 +498,110 @@ async function apply(positional, flags) {
 /* cleanup                                                            */
 /* ------------------------------------------------------------------ */
 
+/* ------------------------------------------------------------------ */
+/* profile                                                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * 프로필 파일 형식: { "members": [{ "crew": "c01", "nick": "크레곤듀", "avatarPath": ".crew/avatars/c01.jpg", "regionVisible": true }] }
+ * 세 값 모두 넣은 것만 바꾼다. nick 에는 '·크루' 를 빼고 쓴다(스크립트가 붙인다).
+ */
+function validateProfiles(plan, roster, nameSuffix) {
+  const members = new Map(roster.members.map((m) => [m.key, m]));
+  const room = NICKNAME_MAX - nameSuffix.length;
+  const seen = new Set();
+  const nicks = new Set();
+  const errors = [];
+
+  (plan.members ?? []).forEach((entry, index) => {
+    const at = `#${index} ${entry.crew}`;
+    if (!members.has(entry.crew)) errors.push(`${at}: 모르는 크루`);
+    if (seen.has(entry.crew)) errors.push(`${at}: 같은 크루가 두 번 있습니다`);
+    seen.add(entry.crew);
+    if (entry.nick !== undefined) {
+      const nick = String(entry.nick).trim();
+      if (!nick || nick.length > room) errors.push(`${at}: 닉네임 ${nick.length}자(1~${room}자, 뒤에 '${nameSuffix}' 가 붙는다)`);
+      if (nick.includes(nameSuffix.replace(/^·/, ""))) errors.push(`${at}: 닉네임에 '${nameSuffix}' 를 넣지 마세요(스크립트가 붙인다)`);
+      if (SELLER_LIKE_NICK.test(nick)) errors.push(`${at}: 판매자처럼 보이는 닉네임 "${nick}"`);
+      if (nicks.has(nick)) errors.push(`${at}: 닉네임 "${nick}" 이 겹칩니다`);
+      nicks.add(nick);
+    }
+    if (entry.avatarPath !== undefined && !fs.existsSync(path.resolve(ROOT, String(entry.avatarPath)))) {
+      errors.push(`${at}: 사진 파일이 없습니다 ${entry.avatarPath}`);
+    }
+    if (entry.regionVisible !== undefined && typeof entry.regionVisible !== "boolean") {
+      errors.push(`${at}: regionVisible 은 true/false 입니다`);
+    }
+  });
+  return { errors, members };
+}
+
+async function profile(positional, flags) {
+  const file = positional[0];
+  if (!file) fail("프로필 파일이 필요합니다: profile <profile.json>");
+  const plan = readJson(path.resolve(ROOT, file), null);
+  if (!plan) fail(`프로필 파일을 읽지 못했습니다: ${file}`);
+  const { nameSuffix } = loadPersonas();
+  const roster = loadRoster();
+  const { errors, members } = validateProfiles(plan, roster, nameSuffix);
+  const dryRun = Boolean(flags["dry-run"]);
+
+  console.log(`프로필 ${plan.members?.length ?? 0}명${dryRun ? " (dry-run)" : ""}`);
+  if (errors.length) {
+    errors.forEach((e) => console.error(`  ✖ ${e}`));
+    fail(`프로필 파일에 문제가 ${errors.length}개 있습니다. 아무것도 바꾸지 않았습니다.`);
+  }
+  const describe = (entry) =>
+    [
+      entry.nick ? crewName(String(entry.nick).trim(), nameSuffix, 0) : null,
+      entry.avatarPath ? "사진" : null,
+      typeof entry.regionVisible === "boolean" ? `동네 노출 ${entry.regionVisible ? "켬" : "끔"}` : null,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+  if (dryRun) {
+    for (const entry of plan.members) console.log(`  ${entry.crew} ${members.get(entry.crew).name} → ${describe(entry)}`);
+    return console.log("검사 통과 (dry-run — 바꾸지 않음)");
+  }
+
+  let ok = 0;
+  let failed = 0;
+  for (const entry of plan.members) {
+    const member = members.get(entry.crew);
+    try {
+      const token = await crewToken(member);
+      const body = {};
+      if (entry.avatarPath) body.avatarId = await uploadImage(token, path.resolve(ROOT, entry.avatarPath));
+      if (typeof entry.regionVisible === "boolean") body.regionVisible = entry.regionVisible;
+      let saved = member.name;
+      if (entry.nick) {
+        saved = null;
+        for (let attempt = 0; attempt < 5 && !saved; attempt += 1) {
+          const name = crewName(String(entry.nick).trim(), nameSuffix, attempt);
+          try {
+            await api("POST", "/api/users/me", { token, body: { ...body, name } });
+            saved = name;
+          } catch (error) {
+            if (!/닉네임/.test(error.message)) throw error;
+          }
+        }
+        if (!saved) throw new Error("닉네임을 정하지 못했습니다(겹침)");
+      } else {
+        await api("POST", "/api/users/me", { token, body });
+      }
+      member.name = saved;
+      writeJson(ROSTER_FILE, roster);
+      ok += 1;
+      console.log(`  ✔ ${entry.crew} #${member.userId} ${saved} · ${describe({ ...entry, nick: undefined }) || "이름만"}`);
+    } catch (error) {
+      failed += 1;
+      console.error(`  ✖ ${entry.crew} ${member.name}: ${error.message}`);
+      if (error.status === 401 || error.status === 403) break;
+    }
+  }
+  console.log(`완료: 성공 ${ok} · 실패 ${failed}`);
+}
+
 async function cleanup(positional, flags) {
   const logFile = positional[0];
   if (!logFile) fail("기록 파일이 필요합니다: cleanup <log.jsonl>");
@@ -538,10 +645,11 @@ const commands = {
   snapshot: () => snapshot(flags),
   apply: () => apply(positional, flags),
   cleanup: () => cleanup(positional, flags),
+  profile: () => profile(positional, flags),
 };
 
 if (!commands[command]) {
-  console.log("사용법: node scripts/crew/crew.mjs <setup|list|snapshot|apply|cleanup> …");
+  console.log("사용법: node scripts/crew/crew.mjs <setup|list|snapshot|apply|cleanup|profile> …");
   process.exit(command ? 1 : 0);
 }
 Promise.resolve()
