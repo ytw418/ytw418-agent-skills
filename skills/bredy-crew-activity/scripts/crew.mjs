@@ -16,6 +16,7 @@
  *   setup   [--count 50] [--dry-run]           크루 계정 생성 + 이름·소개·동네 설정
  *   list                                       크루 목록
  *   snapshot [--pages 5]                       최근 게시글·댓글을 .crew/snapshot.json 으로
+ *   lint    <plan.json> [--strict]             글·댓글 AI 냄새 검사(apply 도 같은 검사로 막는다)
  *   apply   <plan.json> [--dry-run] [--min-delay 4] [--max-delay 12]
  *   cleanup <log.jsonl> [--dry-run]            그 실행에서 만든 글·댓글만 지운다
  *   profile <profile.json> [--dry-run]         크루 닉네임·프로필 사진·동네 노출을 바꾼다
@@ -443,6 +444,121 @@ async function runAction(action, member) {
   }
 }
 
+/* ------------------------------------------------------------------ */
+/* lint — AI 냄새 검사 (references/natural-voice.md)                    */
+/* ------------------------------------------------------------------ */
+
+/** 블로그·보고서에서 온 표현. 커뮤니티 사람은 거의 쓰지 않는다. 있으면 막는다. */
+const AI_PHRASES = [
+  /정리해\s?(봅니다|봤|드려|볼게|보았)/,
+  /공유(합니다|드립니다|드려요|해\s?드려요)/,
+  /도움이\s?(되셨으면|되길|되었으면|되면\s?좋겠)/,
+  /참고(하세요|해\s?주세요|하시면|하시길)/,
+  /결론적으로|요약하(면|자면)|정리하자면|한마디로/,
+  /중요한\s?(건|것은|점은)|핵심은|주의할\s?(점|것)은|포인트는/,
+  /다음과\s?같|아래와\s?같/,
+  // 열거용 '첫째,'·'둘째로:' 만. '둘째 주', '첫째는 이제…'(아이·개체 순서)는 사람 말이다.
+  /(첫째|둘째|셋째)(로)?\s*[,:]/,
+  /하는\s?것이\s?(좋습니다|중요합니다|바람직)/,
+  /살펴보(겠|면|았)|알아보(겠|자|았)/,
+];
+const MARKDOWN_HEAVY = /(^|\n)\s*#{1,6}\s|\*\*[^*\n]+\*\*/;
+const LIST_LINE = /(^|\n)\s*(\d+[.)]|[-*•])\s/;
+const NUMBERED_LINE = /(^|\n)\s*\d+[.)]\s/;
+const DASH = /[—–]/;
+/** 사람 글에 흔한 감탄·말줄임 표시. 하나도 없으면 다듬어진 글로 보인다. */
+const CASUAL = /[ㅋㅎㅠㅜ]|\^\^|~|!!|\?\?|\.\.|♡|ㄹㅇ/;
+const LAUGH = /[ㅋㅎㅠㅜ]/;
+const RANGE = /\d+\s?~\s?\d+/g;
+const PAREN = /\([^)]{4,}\)/;
+const EMOJI = /\p{Extended_Pictographic}/u;
+const INFO_TITLE = /(하는\s?법|방법|이유|정리|루틴|가이드|기준|총정리|꿀팁)\s*[.!?]*$/;
+const COMMENT_LONG = 180;
+
+/**
+ * 계획의 글·댓글을 검사한다. hard 는 apply 를 막고, soft 는 경고만 한다(--strict 면 lint 가 실패).
+ * voice 는 personas.json 의 크루별 말투 묶음(ajeossi·ajumma·twenties·cute).
+ */
+function lintPlan(plan) {
+  const { personas } = loadPersonas();
+  const voiceOf = new Map(personas.map((p) => [p.key, p.voice ?? "default"]));
+  const hard = [];
+  const soft = [];
+  const comments = [];
+
+  (plan.actions ?? []).forEach((action, index) => {
+    if (action.type !== "post" && action.type !== "comment") return;
+    const at = `#${index} ${action.type} ${action.crew}`;
+    const text = String(action.type === "post" ? action.description ?? "" : action.comment ?? "");
+    const title = String(action.title ?? "");
+    const voice = voiceOf.get(action.crew) ?? "default";
+    const whole = `${title}\n${text}`;
+
+    for (const re of AI_PHRASES) {
+      const m = whole.match(re);
+      if (m) hard.push(`${at}: AI 말투 "${m[0]}"`);
+    }
+    if (DASH.test(whole)) hard.push(`${at}: 긴 줄표(—) — 사람은 거의 안 쓴다`);
+    if (MARKDOWN_HEAVY.test(text)) hard.push(`${at}: ## 제목·**굵게** 서식 — 블로그 글처럼 보인다`);
+    if (action.type === "comment" && LIST_LINE.test(text)) hard.push(`${at}: 댓글에 목록 서식`);
+    if (action.type === "post" && NUMBERED_LINE.test(text)) soft.push(`${at}: 번호 목록 — 경험담 문장이나 '-' 몇 줄로`);
+    if (action.type === "post" && INFO_TITLE.test(title.trim())) soft.push(`${at}: 정보글 제목 "${clip(title, 30)}" — 상황·감정이 보이게`);
+
+    const ranges = whole.match(RANGE) ?? [];
+    if (ranges.length >= 2) soft.push(`${at}: 숫자 범위 ${ranges.length}개(${ranges.join(", ")}) — '한 25도쯤', '이틀 정도'처럼`);
+    if (action.type === "comment") {
+      if (text.length > COMMENT_LONG) soft.push(`${at}: 댓글 ${text.length}자 — 한 가지만 짧게`);
+      if (PAREN.test(text)) soft.push(`${at}: 괄호 덧말`);
+      comments.push(text.trim());
+    }
+    if (voice === "twenties") {
+      if (!LAUGH.test(whole)) soft.push(`${at}: 20대 말투인데 ㅋ·ㅎ·ㅠ 가 없다`);
+    } else if (voice !== "default" && !CASUAL.test(whole)) {
+      soft.push(`${at}: ${voice} 말투인데 ㅋ·ㅎ·~·^^ 같은 표시가 하나도 없다`);
+    }
+    if (voice === "ajeossi" && EMOJI.test(whole)) soft.push(`${at}: 아저씨 말투에 이모지`);
+  });
+
+  if (comments.length >= 6) {
+    const share = (pred) => comments.filter(pred).length / comments.length;
+    const pct = (v) => `${Math.round(v * 100)}%`;
+    const lengths = comments.map((c) => c.length).sort((a, b) => a - b);
+    const median = lengths[Math.floor(lengths.length / 2)];
+    const short = share((c) => c.length <= 40);
+    if (median > 90) soft.push(`댓글 길이 중앙값 ${median}자 — 절반은 한 줄(40자 이하)로`);
+    if (short < 0.3) soft.push(`40자 이하 댓글이 ${pct(short)} — 30% 이상으로`);
+    const question = share((c) => /\?\s*$/.test(c));
+    if (question > 0.4) soft.push(`물음표로 끝나는 댓글 ${pct(question)} — 매번 되묻지 않는다`);
+    const deora = share((c) => /더라(고|구)요/.test(c));
+    if (deora > 0.35) soft.push(`'~더라고요' 댓글 ${pct(deora)} — 말끝을 섞는다`);
+    const plain = share((c) => !CASUAL.test(c));
+    if (plain > 0.6) soft.push(`감탄·말줄임 표시 없는 댓글 ${pct(plain)} — 너무 단정하다`);
+    const openers = new Map();
+    for (const c of comments) {
+      const key = c.replace(/[^가-힣a-z0-9]/gi, "").slice(0, 2);
+      openers.set(key, (openers.get(key) ?? 0) + 1);
+    }
+    for (const [key, n] of openers) {
+      if (key && n / comments.length > 0.25) soft.push(`'${key}…'로 시작하는 댓글 ${n}개 — 첫마디를 바꾼다`);
+    }
+  }
+  return { hard, soft };
+}
+
+function lint(positional, flags) {
+  const planFile = positional[0];
+  if (!planFile) fail("계획 파일이 필요합니다: lint <plan.json>");
+  const plan = readJson(path.resolve(ROOT, planFile), null);
+  if (!plan) fail(`계획 파일을 읽지 못했습니다: ${planFile}`);
+  const { hard, soft } = lintPlan(plan);
+  hard.forEach((e) => console.error(`  ✖ ${e}`));
+  soft.forEach((e) => console.log(`  △ ${e}`));
+  console.log(`AI 냄새 검사: 막음 ${hard.length} · 경고 ${soft.length}`);
+  if (hard.length || (flags.strict && soft.length)) {
+    fail(hard.length ? "막는 항목을 고쳐야 apply 할 수 있습니다." : "--strict: 경고를 고치세요.");
+  }
+}
+
 async function apply(positional, flags) {
   const planFile = positional[0];
   if (!planFile) fail("계획 파일이 필요합니다: apply <plan.json>");
@@ -450,9 +566,12 @@ async function apply(positional, flags) {
   if (!plan) fail(`계획 파일을 읽지 못했습니다: ${planFile}`);
   const roster = loadRoster();
   const { errors, counts, members } = validatePlan(plan, roster);
+  const smell = lintPlan(plan);
+  errors.push(...smell.hard);
   const dryRun = Boolean(flags["dry-run"]);
 
   console.log(`계획: ${Object.entries(counts).map(([k, v]) => `${k} ${v}`).join(" · ") || "비어 있음"}`);
+  smell.soft.forEach((e) => console.log(`  △ ${e}`));
   if (errors.length) {
     errors.forEach((e) => console.error(`  ✖ ${e}`));
     fail(`계획에 문제가 ${errors.length}개 있습니다. 아무것도 실행하지 않았습니다.`);
@@ -646,10 +765,11 @@ const commands = {
   apply: () => apply(positional, flags),
   cleanup: () => cleanup(positional, flags),
   profile: () => profile(positional, flags),
+  lint: () => lint(positional, flags),
 };
 
 if (!commands[command]) {
-  console.log("사용법: node scripts/crew/crew.mjs <setup|list|snapshot|apply|cleanup|profile> …");
+  console.log("사용법: node scripts/crew/crew.mjs <setup|list|snapshot|lint|apply|cleanup|profile> …");
   process.exit(command ? 1 : 0);
 }
 Promise.resolve()
