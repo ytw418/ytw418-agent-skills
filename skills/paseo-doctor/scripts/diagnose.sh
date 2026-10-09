@@ -50,6 +50,12 @@ if [ "$DAEMON_VER" != "$APP_VER" ]; then
   echo "- 버전 불일치: 앱은 $APP_VER 인데 데몬은 $DAEMON_VER. 앱 업데이트 뒤 데몬이 재시작되지 않았다."
   PROBLEM=1
 fi
+LOGIN_PID="$(pgrep -x loginwindow | head -1)"
+to_epoch() { LC_ALL=C date -j -f '%a %b %d %T %Y' "$(ps -o lstart= -p "$1" 2>/dev/null | sed 's/ *$//')" +%s 2>/dev/null; }
+if [ -n "$LOGIN_PID" ] && [ -n "$SUP_PID" ] && [ "$(to_epoch "$SUP_PID")" -lt "$(to_epoch "$LOGIN_PID")" ] 2>/dev/null; then
+  echo "- Supervisor 가 지금 로그인 세션보다 먼저 떴다(로그인 $(ps -o lstart= -p "$LOGIN_PID")). 강제 로그아웃(WindowServer 멈춤) 뒤 살아남아 DNS·키체인과 끊겼다. relaunch.sh 로 고친다."
+  PROBLEM=1
+fi
 if [ "$DNS_ERR" -gt 0 ]; then
   echo "- 데몬이 DNS 를 못 쓴다(Could not resolve host). Supervisor 가 GUI 세션 서비스(DNS·키체인)와 끊긴 상태일 가능성이 크다."
   PROBLEM=1

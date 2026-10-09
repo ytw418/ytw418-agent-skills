@@ -40,6 +40,12 @@ bash ~/.claude/skills/paseo-doctor/scripts/diagnose.sh
 
 참고: 이 셸에서는 `dig` 가 되는데 `getaddrinfo` 만 실패하면 시스템 리졸버(XPC)가 끊긴 상태다. git push 우회 방법은 메모 `paseo-session-dns-keychain-loss` 에 있다.
 
+끊기는 계기 (2026-10-10 확인)
+- WindowServer 가 멈추면 watchdog 이 GUI 세션을 강제로 끝내고 사용자는 다시 로그인한다(`/Library/Logs/DiagnosticReports/WindowServer_*userspace_watchdog_timeout.spin`, `last` 의 console 기록). 10-09 03:00, 10-09 22:20 두 번 모두 그 뒤로 DNS 오류가 났다. 잠자기나 버전 불일치는 원인이 아니었다.
+- 판별: Supervisor 시작 시각이 `loginwindow` 시작 시각보다 이르면 이 상태다. `diagnose.sh` 판정에 나온다.
+
+재발 방지: `bash scripts/install-guard.sh` 로 LaunchAgent(`com.ytw418.paseo-stale-guard`)를 설치하면 로그인할 때와 10분마다 `stale-guard.sh` 가 낡은 Supervisor 를 찾아 앱째 다시 띄운다. 로그는 `~/Library/Logs/paseo-stale-guard.log`, 제거는 `install-guard.sh --uninstall`, 판정만 보려면 `stale-guard.sh --dry-run`.
+
 ### B. 사이드바 워크스페이스를 눌러도 같은 대화창만 열림
 
 증상: 워크스페이스 4개를 각각 눌러도 항상 한 워크스페이스의 대화창으로만 간다. 가끔 생긴다.
