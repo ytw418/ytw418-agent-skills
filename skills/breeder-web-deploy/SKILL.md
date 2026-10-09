@@ -31,6 +31,7 @@ gh pr view <번호> --json number,title,body   # PR마다
 
 - 머지된 PR 단위로 한 줄씩 적는다: `- #162 운영자 숨김·삭제 API와 게시글·댓글·경매 숨김`. PR 제목을 그대로 베끼기보다 사용자가 체감하는 변화로 한국어 한 줄로 쓴다.
 - PR 번호 없이 dev에 직접 들어간 커밋은 커밋 제목으로 한 줄씩 적는다.
+- 포함 PR 본문의 `## 스크린샷` 이미지 줄(`<img …>`·`![…](…)`)을 PR 번호별로 모아 `## 스크린샷`에 넣는다. 사용자는 이 화면을 보고 운영 머지를 결정한다. 화면 변화가 있는데 캡처가 없는 PR 은 Vercel 프리뷰를 찍어 `scripts/pr-screenshots.sh`로 올려 채운다. 화면 변화가 하나도 없으면 `스크린샷 없음 — <이유>` 한 줄을 넣는다(breeder_web `.claude/hooks/pr-guard.py`가 둘 다 없는 본문을 막는다).
 - DB 마이그레이션(`prisma/` 변경), 환경 변수 추가, API 계약 변경이 있으면 `## 배포 시 주의`에 따로 적는다:
   `git diff --stat origin/main origin/dev -- prisma/ .env.example`
 
@@ -61,6 +62,11 @@ vX.Y.Z (이전: vA.B.C)
 
 ## 배포 시 주의
 - (없으면 "없음")
+
+## 스크린샷
+| #161 … | #162 … |
+|---|---|
+| <img src="…" width="280"> | <img src="…" width="280"> |
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 ```
