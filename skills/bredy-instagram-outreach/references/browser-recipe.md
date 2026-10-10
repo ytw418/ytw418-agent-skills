@@ -1,44 +1,53 @@
-# 인스타 웹을 Paseo 브라우저로 다루는 법 (2026-10-10 실제 20명 발송으로 검증)
+# 인스타 웹을 Paseo 브라우저로 다루는 법 (2026-10-10 실제 발송으로 검증)
 
 도구: `mcp__paseo__browser_*` (ToolSearch 로 `select:` 해서 불러온다).
 
 ## 먼저 확인
 
-1. `browser_list_tabs` — instagram.com 탭이 있으면 그 `browserId` 를 쓴다. 없으면 `browser_new_tab https://www.instagram.com/direct/inbox/`(같은 Paseo 브라우저라 로그인이 이어진다).
+1. `browser_list_tabs` — instagram.com 탭이 있으면 그 `browserId` 를 쓴다. **사용자가 Paseo 화면에서 한 번이라도 띄운 탭(로그인한 탭)만 입력을 받는다.** `browser_new_tab` 으로 새로 연 백그라운드 탭은 페이지·스냅샷은 되지만 클릭·키 입력·Enter 가 전혀 먹지 않는다(2026-10-10 확인) → 새 탭을 열지 말고 기존 탭 하나로 차례대로 보낸다. 쓸 탭이 없으면 사용자에게 Paseo 브라우저에서 instagram.com 탭을 열어 달라고 한다.
 2. 로그인 계정: `browser_wait text="bredy_breeder" timeoutMs=10000`. 로그인 화면(`/accounts/login`)이거나 다른 계정이면 **아무것도 보내지 않고** 사용자에게 로그인·전환을 부탁한다. 비밀번호·토큰은 받지 않는다. 계정 전환: 왼쪽 아래 '더 보기' → '계정 전환'.
-3. Paseo 브라우저 패널이 가려져 있어도 된다. 스크린샷은 `screenshot_no_frame`으로 실패하지만 아래 방법으로는 보내진다. 화면 확인은 스크린샷 대신 `browser_snapshot`·`browser_wait` 로 한다.
+3. Paseo 브라우저 패널이 가려져 있어도 된다. 스크린샷은 `screenshot_no_frame`으로 실패하지만 아래 방법으로는 보내진다. 화면 확인은 스크린샷 대신 `browser_wait`(가끔 `browser_snapshot`)로 한다.
 
-## 새 사람에게 보내기 (검증된 순서)
+## 새 사람에게 보내기 (빠른 순서, 사람당 도구 호출 5번 — 스냅샷 없음)
 
-1. `browser_navigate https://ig.me/m/<handle>` → `browser_wait text="<handle> · Instagram" timeoutMs=7000`.
-   - 시간 초과면 ig.me 가 `/m/<handle>`(페이지 없음)로 간 것이다 → 프로필로 간다: `browser_navigate https://www.instagram.com/<handle>/` → `browser_snapshot` → `button "메시지 보내기"` 클릭 → 오른쪽 아래 작은 채팅창이 뜬다.
-   - 프로필이 '페이지를 사용할 수 없습니다'면 `mark <handle> 제외 "계정 없음"`.
-2. `browser_wait text="zzzz" timeoutMs=1500`(잠깐 기다림) → `browser_snapshot`.
-   - **이전 대화 확인**: 대화방 영역에 `article`(말풍선)이나 날짜(`2026. 2. 18. 오전 1:48` 같은 것)가 있으면 내용을 본다. 우리가 보낸 영업 메시지가 이미 있으면 보내지 않고 `mark <handle> 제외 "기존 대화"`. 상대가 우리를 스토리에서 언급한 정도는 보내도 된다.
-   - **입력창 ref**: 대화방 아래쪽의 이름 없는 `textbox [ref=@eNN]`(바깥쪽 것). 보통 @e39~@e41, 프로필 채팅창은 @e87 근처.
-   - 입력창 이름(aria)에 이미 글이 들어 있으면 이전 시도 잔여물이다 → 아래 3에서 첫 줄을 넣기 전에 `browser_keypress Meta+a` → `Backspace`.
-3. **첫 줄만 `browser_type ref=<입력창>` 으로 넣는다.** ref 를 주면 그 자리를 눌러 포커스가 잡혀서, 패널이 가려져 있어도 Enter 전송이 된다. 첫 줄을 넣으면 입력창이 다시 그려져 ref 가 바뀌므로 **나머지는 ref 없이** 넣는다.
-4. 나머지 줄: `browser_keypress Shift+Enter` → `browser_type`(ref 없이) 반복 → 마지막에 `browser_keypress Enter`.
-5. **전송 확인**: `browser_wait text=": <첫 줄 앞부분>" timeoutMs=8000` — 왼쪽 대화 목록에 `회원님: <첫 줄>` 이 생기면 보내진 것이다. 프로필 채팅창으로 보냈으면 `https://www.instagram.com/direct/inbox/` 로 가서 같은 글을 기다린다.
-   - 실패하면 `browser_snapshot` 으로 입력창에 글이 남았는지 본다. 남았으면 `button "보내기"` ref 를 한 번만 클릭한다. **확인 없이 다시 타이핑하지 않는다(중복 전송 방지).**
-6. `node $OUT mark <handle> 보냄 "<문구 종류>"`.
+1. `browser_navigate https://ig.me/m/<handle>` → `browser_wait text="<handle> · Instagram" timeoutMs=6000`.
+   - 시간 초과면 ig.me 가 `/m/<handle>`(페이지 없음)로 간 것이다 → `mark <handle> 보류 "ig.me 실패"` 하고 넘어간다. 프로필에 '메시지 보내기' 버튼이 없는 계정(DM 을 안 받는 계정)이 대부분이다.
+2. **`browser_type`(ref 없이) 한 번에 메시지 전체를 넣는다.** 대화방을 열면 입력창에 자동 포커스가 있다.
+   - **줄바꿈은 text 안에 실제 줄바꿈 문자를 넣는다.** 입력창에서 줄이 나뉘고 보낸 메시지도 줄이 나뉜다.
+   - **`browser_keypress Shift+Enter` 는 줄바꿈이 안 된다**(아무것도 안 들어가 문장이 붙어서 간다 — 10-10 첫 50여 명이 이렇게 갔다).
+   - text 가 줄바꿈으로 **시작하면** 글 전체가 사라진다. 첫 줄부터 시작한다.
+   - `browser_fill` 은 화면엔 글이 보여도 인스타 입력기(Lexical) 상태에 안 들어가서 보낼 때 빠진다. 쓰지 않는다.
+3. `browser_keypress Enter`(ref 없이)로 보낸다.
+4. **전송 확인**: `browser_wait text=": 안녕하세요 <닉네임>님" timeoutMs=8000` — 왼쪽 대화 목록에 `회원님: <첫 줄>` 이 생기면 보내진 것이다.
+   - 시간 초과면 `browser_wait text="메시지 요청을 허용하지 않" timeoutMs=1500` → 맞으면 `제외 "DM 막힘"`(상대가 요청을 막은 것, 내 계정 제한 아님), 아니면 `확인필요 "전송 확인 실패"`. **다시 타이핑하거나 다시 보내지 않는다(중복 전송 방지).**
+   - 목록 미리보기에서 줄바꿈 자리는 띄어쓰기로 보인다(`있어요. 분양글이랑`). 붙어 있으면(`있어요.분양글이랑`) 줄바꿈이 빠진 것이다.
+5. `node $OUT mark <handle> 보냄 "<문구 종류>"` — 여러 명을 보낼 땐 5명마다 `&&` 로 묶어 한 번에 기록한다.
+6. 연속 3명 확인이 실패하면 그때만 `browser_snapshot` 으로 원인을 본다(제한 문구면 그날 중단).
+
+빠르게 많이 보낼 땐 이 순서를 Haiku 서브에이전트(`Agent model: "haiku"`, 백그라운드)에 목록 파일과 함께 넘긴다. 10-10 기준 사람당 20~30초.
+
+### 꼼꼼한 순서 (기존 대화가 있을 수 있는 사람 — 팔로워·답장 온 적 있는 계정)
+
+1~2 대신: ig.me 로 연 뒤 `browser_snapshot` 으로 대화방의 `article`(말풍선)·날짜를 본다. 우리가 보낸 영업 메시지가 이미 있으면 `제외 "기존 대화"`. ig.me 가 안 열리면 프로필(`https://www.instagram.com/<handle>/`) → `button "메시지 보내기"` → 오른쪽 아래 작은 채팅창. 그다음은 위 2~5 와 같다.
 
 ## 답장 처리
 
 - DM함 목록에서 `Unread` 가 붙은 항목만 연다(열면 읽음 처리된다). 항목 이름의 마지막 메시지가 `회원님: …`이면 우리가 마지막으로 말한 것이니 열지 않는다.
-- 연 뒤 `browser_snapshot` 으로 대화 전체를 읽고 templates.md 답장 표대로 처리. 보내는 방법은 위 3~5 와 같다.
+- 연 뒤 `browser_snapshot` 으로 대화 전체를 읽고 templates.md 답장 표대로 처리. 보내는 방법은 위 2~5 와 같다(여러 줄이면 줄바꿈 문자를 넣어 한 번에 type).
 - 사용자가 손으로 대화 중인 사람(최근 우리 쪽 메시지가 템플릿이 아닌 짧은 대화체, 예: "와우 굿즈나오셨나요", "넵 ㅎㅎ")은 열지도 답하지도 않는다.
 
 ## 목록 모으기
 
-- 팔로워: 프로필 → `link "팔로워 N"` 클릭(직접 URL `/followers/` 로는 창이 안 뜬다) → ref 없이 `browser_scroll deltaY=5000` 을 2.5초 간격으로 여러 번 → 스냅샷 한 번(1500 노드에서 잘리므로 50명쯤씩).
+- 먼저 `browser_resize width=430 height=932` — 패널이 가려져 있으면 팔로워·팔로잉 창이 비어 있다가, 모바일 크기로 바꾸면 목록이 그려진다.
+- 팔로워·팔로잉: 프로필 → `link "팔로워 N"`/`link "팔로우 N"` 클릭(직접 URL `/followers/` 로는 창이 안 뜬다) → ref 없이 `browser_scroll deltaY=5000` 을 2.5초 간격으로 여러 번 → 스냅샷 한 번(1500 노드에서 잘리므로 50명쯤씩). 사용자가 곤충·파충류·햄스터·피그미다람쥐·물고기 브리더를 계속 팔로우하므로 **공식 계정의 팔로잉 목록이 가장 좋은 출처**다(10-10 기준 556명).
+- 비슷한 계정: 대상 프로필의 `button "비슷한 계정"` → '모두 보기' → 30명 안팎. 작은 계정은 안 뜰 수 있다.
 - 홈 추천: 홈 피드의 '회원님을 위한 추천' 옆 '팔로우'. 곤충·물고기·파충류 계정만, 실행당 5명 이하.
 - 해시태그: `https://www.instagram.com/explore/tags/<태그>/`.
 
 ## 하지 말 것
 
 - `browser_evaluate` — 인스타 CSP 가 막는다.
-- 스냅샷 남발 — DM 화면 스냅샷은 6~10k 글자다. 사람마다 1번(대화방 열었을 때)만 찍고, 나머지 확인은 `browser_wait`.
-- 탭 여러 개로 동시에 보내기 — 짧은 시간에 몰리면 공식 계정이 막힐 수 있다. 탭 하나로 차례대로.
+- 스냅샷 남발 — DM 화면 스냅샷은 7~12k 글자다(왼쪽 목록에 보낸 글이 다 들어간다). 빠른 순서에선 찍지 않는다.
+- 탭 여러 개로 동시에 보내기 — 새 탭은 입력이 안 먹고(위 '먼저 확인' 1), 짧은 시간에 몰리면 공식 계정이 막힐 수 있다. 탭 하나로 차례대로.
 - 차단을 피하려는 위장(일부러 넣는 무작위 지연, 다계정, 탐지 우회 도구).
 - 화면에 '나중에 다시 시도하세요', '활동이 제한됨', '메시지를 보낼 수 없습니다'가 보이면 그날은 더 보내지 않고 알린다.
