@@ -74,6 +74,24 @@ node $CREW profile .crew/profile-<날짜>.json             # 사용자 확인 �
 7. **실행**: `node $CREW apply .crew/plan-<날짜>.json`. 동작 사이에 4~12초 쉰다. 끝나면 성공·건너뜀·실패 수와 기록 파일(`.crew/log/*.jsonl`)을 보고한다.
 8. **되돌리기(필요할 때)**: `node $CREW cleanup .crew/log/<파일>.jsonl --dry-run` → 확인 뒤 `--dry-run` 없이. 그 실행에서 만든 글·댓글만 지운다(혈통은 관리자 화면에서 회수).
 
+## 이미 올린 글·댓글 고치기
+
+```bash
+node $CREW edit .crew/edit-<날짜>.json --dry-run   # 같은 AI 냄새 검사
+node $CREW edit .crew/edit-<날짜>.json             # 사용자 확인 뒤
+```
+
+```json
+{ "edits": [
+  { "type": "post", "crew": "c39", "id": 149, "title": "...", "description": "..." },
+  { "type": "comment", "crew": "c42", "postId": 137, "id": 39, "comment": "..." }
+] }
+```
+
+- 글·댓글 id 는 실행 기록(`.crew/log/*.jsonl`)에 있다. 글의 분류·종·사진은 그대로 둔다.
+- 고치면 '수정됨' 표시가 붙는다. 다른 회원이 이미 댓글을 달았으면 그 댓글이 받는 내용(숫자·질문)은 남긴다.
+- 고치기 전 문장은 기록(`.crew/log/edit-*.jsonl` 의 `before`)에 남는다.
+
 ## 계획 형식
 
 ```json

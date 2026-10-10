@@ -18,6 +18,7 @@
  *   snapshot [--pages 5]                       최근 게시글·댓글을 .crew/snapshot.json 으로
  *   lint    <plan.json> [--strict]             글·댓글 AI 냄새 검사(apply 도 같은 검사로 막는다)
  *   apply   <plan.json> [--dry-run] [--min-delay 4] [--max-delay 12]
+ *   edit    <edit.json> [--dry-run]            이미 올린 크루 글·댓글을 고친다(같은 AI 냄새 검사)
  *   cleanup <log.jsonl> [--dry-run]            그 실행에서 만든 글·댓글만 지운다
  *   profile <profile.json> [--dry-run]         크루 닉네임·프로필 사진·동네 노출을 바꾼다
  */
@@ -468,7 +469,8 @@ const NUMBERED_LINE = /(^|\n)\s*\d+[.)]\s/;
 const DASH = /[—–]/;
 /** 사람 글에 흔한 감탄·말줄임 표시. 하나도 없으면 다듬어진 글로 보인다. */
 const CASUAL = /[ㅋㅎㅠㅜ]|\^\^|~|!!|\?\?|\.\.|♡|ㄹㅇ/;
-const LAUGH = /[ㅋㅎㅠㅜ]/;
+const LAUGH = /[ㅋㅎㅠㅜ]|ㄹㅇ/;
+const CUTE_END = /용(\s|[.!?~]|$)/m;
 const RANGE = /\d+\s?~\s?\d+/g;
 const PAREN = /\([^)]{4,}\)/;
 const EMOJI = /\p{Extended_Pictographic}/u;
@@ -512,7 +514,11 @@ function lintPlan(plan) {
       comments.push(text.trim());
     }
     if (voice === "twenties") {
-      if (!LAUGH.test(whole)) soft.push(`${at}: 20대 말투인데 ㅋ·ㅎ·ㅠ 가 없다`);
+      if (!LAUGH.test(whole)) soft.push(`${at}: 20대 말투인데 ㅋ·ㅎ·ㅠ·ㄹㅇ 가 없다`);
+    } else if (voice === "cute") {
+      if (!CASUAL.test(whole) && !EMOJI.test(whole) && !CUTE_END.test(whole)) {
+        soft.push(`${at}: 귀여운 말투인데 ~용·이모지·ㅎㅎ 같은 표시가 없다`);
+      }
     } else if (voice !== "default" && !CASUAL.test(whole)) {
       soft.push(`${at}: ${voice} 말투인데 ㅋ·ㅎ·~·^^ 같은 표시가 하나도 없다`);
     }
@@ -721,6 +727,90 @@ async function profile(positional, flags) {
   console.log(`완료: 성공 ${ok} · 실패 ${failed}`);
 }
 
+/* ------------------------------------------------------------------ */
+/* edit — 이미 올린 크루 글·댓글 고치기                                  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * 수정 파일 형식:
+ * { "edits": [
+ *   { "type": "post", "crew": "c39", "id": 149, "title": "...", "description": "..." },
+ *   { "type": "comment", "crew": "c42", "postId": 137, "id": 39, "comment": "..." } ] }
+ * 같은 AI 냄새 검사를 거친다. 고치기 전 문장을 기록(.crew/log/edit-*.jsonl)에 남겨 되돌릴 수 있게 한다.
+ * 글을 고치면 '수정됨' 표시가 붙는다.
+ */
+async function edit(positional, flags) {
+  const file = positional[0];
+  if (!file) fail("수정 파일이 필요합니다: edit <edit.json>");
+  const plan = readJson(path.resolve(ROOT, file), null);
+  if (!plan) fail(`수정 파일을 읽지 못했습니다: ${file}`);
+  const members = new Map(loadRoster().members.map((m) => [m.key, m]));
+  const edits = plan.edits ?? [];
+  const errors = [];
+  edits.forEach((e, index) => {
+    const at = `#${index} ${e.type} ${e.crew}`;
+    if (!members.has(e.crew)) errors.push(`${at}: 모르는 크루`);
+    if (!Number.isInteger(e.id)) errors.push(`${at}: id 가 없습니다`);
+    if (e.type === "post") {
+      const len = String(e.description ?? "").trim().length;
+      if (!String(e.title ?? "").trim()) errors.push(`${at}: 제목이 없습니다`);
+      if (len < POST_BODY_MIN || len > POST_BODY_MAX) errors.push(`${at}: 본문 ${len}자(${POST_BODY_MIN}~${POST_BODY_MAX})`);
+    } else if (e.type === "comment") {
+      const len = String(e.comment ?? "").trim().length;
+      if (!Number.isInteger(e.postId)) errors.push(`${at}: postId 가 없습니다`);
+      if (!len || len > COMMENT_MAX) errors.push(`${at}: 댓글 ${len}자(1~${COMMENT_MAX})`);
+    } else errors.push(`${at}: post·comment 만 고칠 수 있습니다`);
+  });
+  const smell = lintPlan({ actions: edits });
+  errors.push(...smell.hard);
+  const dryRun = Boolean(flags["dry-run"]);
+
+  console.log(`수정: 글 ${edits.filter((e) => e.type === "post").length} · 댓글 ${edits.filter((e) => e.type === "comment").length}${dryRun ? " (dry-run)" : ""}`);
+  smell.soft.forEach((e) => console.log(`  △ ${e}`));
+  if (errors.length) {
+    errors.forEach((e) => console.error(`  ✖ ${e}`));
+    fail(`수정 파일에 문제가 ${errors.length}개 있습니다. 아무것도 고치지 않았습니다.`);
+  }
+  if (dryRun) return console.log("검사 통과 (dry-run — 고치지 않음)");
+
+  const logFile = path.join(LOG_DIR, `edit-${new Date().toISOString().replace(/[:.]/g, "-")}.jsonl`);
+  let ok = 0;
+  let failed = 0;
+  for (const [index, e] of edits.entries()) {
+    const member = members.get(e.crew);
+    try {
+      const token = await crewToken(member);
+      if (e.type === "post") {
+        const { post } = await api("GET", `/api/posts/${e.id}`, { token });
+        if (post.user.id !== member.userId) throw new Error("이 크루가 쓴 글이 아닙니다");
+        await api("POST", `/api/posts/${e.id}`, {
+          token,
+          // 분류·종을 보내지 않으면 서버가 비운다. 원래 값을 그대로 넘긴다. 사진 필드는 보내지 않아 그대로 둔다.
+          body: { action: "update", title: e.title.trim(), description: e.description.trim(), category: post.category, species: post.type },
+        });
+        appendJsonl(logFile, { index, type: "post", crew: e.crew, id: e.id, ok: true, before: { title: post.title, description: post.description } });
+        appendJsonl(HISTORY_FILE, { type: "post", crew: member.key, id: e.id, title: e.title.trim(), at: new Date().toISOString() });
+      } else {
+        const { post } = await api("GET", `/api/posts/${e.postId}`, { token });
+        const current = post.comments.find((c) => c.id === e.id);
+        if (!current || current.user.id !== member.userId) throw new Error("이 크루가 단 댓글이 아닙니다");
+        await api("PATCH", `/api/posts/${e.postId}/comments/${e.id}`, { token, body: { comment: e.comment.trim() } });
+        appendJsonl(logFile, { index, type: "comment", crew: e.crew, id: e.id, postId: e.postId, ok: true, before: { comment: current.comment } });
+      }
+      ok += 1;
+      console.log(`  ✔ #${index} ${e.type} ${e.id} ${member.name}`);
+    } catch (error) {
+      failed += 1;
+      appendJsonl(logFile, { index, type: e.type, crew: e.crew, id: e.id, ok: false, error: error.message });
+      console.error(`  ✖ #${index} ${e.type} ${e.id} ${member.name}: ${error.message}`);
+      if (error.status === 401 || error.status === 403) break;
+    }
+    if (index < edits.length - 1) await sleep(2000 + Math.random() * 3000);
+  }
+  console.log(`완료: 성공 ${ok} · 실패 ${failed}`);
+  console.log(`기록: ${path.relative(ROOT, logFile)} (before 에 고치기 전 문장)`);
+}
+
 async function cleanup(positional, flags) {
   const logFile = positional[0];
   if (!logFile) fail("기록 파일이 필요합니다: cleanup <log.jsonl>");
@@ -766,10 +856,11 @@ const commands = {
   cleanup: () => cleanup(positional, flags),
   profile: () => profile(positional, flags),
   lint: () => lint(positional, flags),
+  edit: () => edit(positional, flags),
 };
 
 if (!commands[command]) {
-  console.log("사용법: node scripts/crew/crew.mjs <setup|list|snapshot|lint|apply|cleanup|profile> …");
+  console.log("사용법: node scripts/crew/crew.mjs <setup|list|snapshot|lint|apply|edit|cleanup|profile> …");
   process.exit(command ? 1 : 0);
 }
 Promise.resolve()
