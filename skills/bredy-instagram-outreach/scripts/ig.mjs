@@ -11,8 +11,8 @@
 //   node ig.mjs inbox                읽지 않은 대화를 열어 handle·최근 메시지를 JSON 으로
 //   node ig.mjs read <handle>        그 사람 대화 최근 메시지 JSON
 //   node ig.mjs reply <handle> <글>  답장(여러 줄은 글 안의 \n)
-// 옵션: --headless(창 안 띄움) --dry(입력·검사까지만, 전송 안 함) --ignore-limit(하루 한도 무시, 사용자 승인 때만)
-// 밤 9시~아침 8시(KST)엔 send 를 거부한다(정보통신망법 50조 3항).
+// 옵션: --headless(창 안 띄움 — 읽기용. 보낼 땐 쓰지 않는다: 10-11 headless 로 6분에 28명 보낸 뒤 로그아웃) --dry(입력·검사까지만, 전송 안 함) --ignore-limit(하루 한도 무시, 사용자 승인 때만)
+// 밤 9시~아침 8시(KST)엔 send 를 거부한다(정보통신망법 50조 3항). 보낸 뒤 다음 사람까지 IG_GAP_SEC(기본 45초) 쉰다.
 
 import fs from "node:fs";
 import os from "node:os";
@@ -32,6 +32,7 @@ const flags = new Set(argv.filter((a) => a.startsWith("--")));
 const [cmd, ...args] = argv.filter((a) => !a.startsWith("--"));
 const HEADLESS = flags.has("--headless");
 const DRY = flags.has("--dry");
+const GAP_MS = Number(process.env.IG_GAP_SEC || 45) * 1000; // 보낸 뒤 다음 사람까지 쉬는 시간
 
 const LIMIT_TEXT = /나중에 다시 시도|활동이 제한|Try Again Later|We restrict certain activity/;
 const BLOCKED_TEXT = /메시지를 받을 수 없습니다|보낼 수 있는 사람이 제한|메시지 요청을 허용하지 않|Not everyone can message/;
@@ -106,12 +107,16 @@ function composerOf(page) {
 }
 
 // 대화방을 연다. 입력창이 안 나오면 null(ig.me 가 없는 페이지로 가거나 DM 을 못 받는 계정)
+class LoggedOut extends Error {}
+
 async function openThread(page, handle) {
   await page.goto(`https://ig.me/m/${handle}`, { waitUntil: "domcontentloaded" });
   const composer = composerOf(page);
   try {
     await composer.waitFor({ timeout: 15000 });
   } catch {
+    // 로그아웃·보안 확인으로 튕긴 것을 'DM 못 받는 계정'으로 잘못 기록하지 않는다(10-11: 28명 뒤 로그아웃 → 10명 오기록)
+    if (/\/accounts\/login|\/challenge|\/checkpoint/.test(page.url())) throw new LoggedOut(page.url());
     return null;
   }
   await sleep(2500); // 이전 대화가 그려질 시간
@@ -123,8 +128,12 @@ const norm = (s) => s.replace(/ /g, " ").replace(/\n+/g, "\n").trim();
 // 실제 키 입력으로 넣고(줄 사이 Shift+Enter) 입력창 내용이 정확히 같은지 확인한다
 async function typeExact(page, composer, lines) {
   await composer.click();
-  await page.keyboard.press("Meta+A");
-  await page.keyboard.press("Backspace");
+  await sleep(200);
+  if (norm(await composer.innerText())) {
+    await page.keyboard.press("Meta+A");
+    await page.keyboard.press("Backspace");
+    await sleep(400); // 지운 직후 바로 넣으면 첫 줄이 사라진다(10-11 확인)
+  }
   for (let i = 0; i < lines.length; i++) {
     if (i) await page.keyboard.press("Shift+Enter");
     await page.keyboard.insertText(lines[i]);
@@ -171,7 +180,14 @@ async function cmdSend(want) {
     if (!(await loggedIn(page))) throw new Error("로그인 안 됨 → node ig.mjs login");
     for (const t of candidates(want * 4)) {
       if (result.sent.length >= want) break;
-      const composer = await openThread(page, t.handle);
+      let composer;
+      try {
+        composer = await openThread(page, t.handle);
+      } catch (e) {
+        if (!(e instanceof LoggedOut)) throw e;
+        result.stopped = "로그아웃됨 → node ig.mjs login 후 다시(보낸 속도를 줄일 것)";
+        break;
+      }
       if (await limitHit(page)) { result.stopped = "제한 문구"; break; }
       if (!composer) {
         outreach("mark", t.handle, "보류", "ig.me 실패(크롬)");
@@ -185,7 +201,7 @@ async function cmdSend(want) {
       }
       const lines = firstMessage(t.nick, t.kind, left);
       if (!(await typeExact(page, composer, lines)) && !(await typeExact(page, composer, lines))) {
-        outreach("mark", t.handle, "확인필요", "입력 불일치(크롬)");
+        if (!DRY) outreach("mark", t.handle, "확인필요", "입력 불일치(크롬)");
         result.failed.push(t.handle);
         continue;
       }
@@ -208,6 +224,7 @@ async function cmdSend(want) {
       result.sent.push(t.handle);
       log(`보냄 ${result.sent.length}/${want}: ${t.handle}`);
       if (await limitHit(page)) { result.stopped = "제한 문구"; break; }
+      await sleep(GAP_MS); // 몰아서 보내면 로그아웃된다(10-11: 6분에 28명 → 세션 끊김)
     }
   } finally {
     await ctx.close();
