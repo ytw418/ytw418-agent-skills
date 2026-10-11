@@ -42,6 +42,10 @@ node $OUT add <handle> <닉네임> <분야> <유형> <출처> "메모"
 - 차단 회피 위장(일부러 넣는 무작위 지연, 다계정, 탐지 우회 도구)은 쓰지 않는다. 인스타가 제한 경고를 띄우면 그날 중단하고 알린다.
 - targets.csv·로그는 저장소에 커밋하지 않는다(다른 사람 계정 정보).
 
-## 자동 일정 (사용자가 켜 달라고 할 때만)
+## 자동 실행 (사용자가 켜 달라고 할 때만)
 
-Paseo 일정 `bredy-instagram-outreach`(2026-10-10 등록, cron `0 10,13,19 * * *` Asia/Seoul, 작업 위치 = 로그인 탭이 있는 Paseo '영업용' 작업 공간)가 하루 세 번 이 스킬을 돌린다. 일정은 Mac 과 Paseo 앱이 켜져 있을 때만 돈다. 로그인이 풀렸으면 첫 단계에서 멈추고 보고한다. 바꾸거나 끌 때는 `mcp__paseo__list_schedules` → `update_schedule`/`pause_schedule`/`delete_schedule`.
+**Paseo 일정(schedule)이 아니라 하트비트(heartbeat)로 돌린다.** 일정은 실행마다 새 에이전트·새 작업 공간을 만들고, 브라우저 탭은 작업 공간마다 따로라서 로그인된 instagram 탭을 못 쓴다(10-11 08:00·10:00 실행이 `tabs: []` 로 0건). 하트비트는 탭이 있는 '영업용' 작업 공간의 그 에이전트에게 프롬프트를 보내므로 같은 탭을 쓴다.
+
+- 10-11 등록: 하트비트 `ff1282f5`, cron `0 10,13,19 * * *` Asia/Seoul, 대상 = 영업용 작업 공간 에이전트. 바꾸거나 끌 때는 그 에이전트에서 `mcp__paseo__create_heartbeat`/`delete_heartbeat`.
+- 탭은 `browser_list_tabs` 의 `isActive: true` 인 것(사용자가 Paseo 화면에 띄운 탭)만 클릭·Enter 가 먹는다. 사용자가 다른 화면으로 가면 글만 들어가고 안 나간다 → 그때는 보내지 말고 탭을 띄워 달라고 알린다.
+- Mac 과 Paseo 앱이 켜져 있을 때만 돈다. 무거운 발송은 Haiku 서브에이전트에 넘겨 그 에이전트의 대화가 길어지지 않게 한다.
