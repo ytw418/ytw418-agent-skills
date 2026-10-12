@@ -91,10 +91,25 @@ async function openBrowser() {
   return { ctx, page };
 }
 
+// 로그인 화면에 저장된 bredy_breeder 계정의 '계속' 버튼이 있으면 눌러서 다시 들어간다(10-12 사용자: "계속 누르면 되는데 니가 해").
+// 비밀번호 입력·본인 확인은 하지 않는다 — 그 화면이면 false 를 돌려 사용자에게 넘긴다.
+async function continueSavedLogin(page) {
+  if ((await page.getByText("bredy_breeder").count()) === 0) return false;
+  const btn = page.getByRole("button", { name: /^(계속|Continue)/ }).first();
+  if ((await btn.count()) === 0) return false;
+  await btn.click();
+  await sleep(6000);
+  return true;
+}
+
 async function loggedIn(page) {
   await page.goto("https://www.instagram.com/direct/inbox/", { waitUntil: "domcontentloaded" });
   await sleep(3000);
-  if (page.url().includes("/accounts/login") || page.url().includes("/challenge")) return false;
+  if (page.url().includes("/accounts/login") && (await continueSavedLogin(page))) {
+    await page.goto("https://www.instagram.com/direct/inbox/", { waitUntil: "domcontentloaded" });
+    await sleep(3000);
+  }
+  if (/\/accounts\/login|\/challenge|\/checkpoint/.test(page.url())) return false;
   return (await page.getByText("bredy_breeder").count()) > 0;
 }
 
@@ -109,14 +124,17 @@ function composerOf(page) {
 // 대화방을 연다. 입력창이 안 나오면 null(ig.me 가 없는 페이지로 가거나 DM 을 못 받는 계정)
 class LoggedOut extends Error {}
 
-async function openThread(page, handle) {
+async function openThread(page, handle, retried = false) {
   await page.goto(`https://ig.me/m/${handle}`, { waitUntil: "domcontentloaded" });
   const composer = composerOf(page);
   try {
     await composer.waitFor({ timeout: 15000 });
   } catch {
     // 로그아웃·보안 확인으로 튕긴 것을 'DM 못 받는 계정'으로 잘못 기록하지 않는다(10-11: 28명 뒤 로그아웃 → 10명 오기록)
-    if (/\/accounts\/login|\/challenge|\/checkpoint/.test(page.url())) throw new LoggedOut(page.url());
+    if (/\/accounts\/login|\/challenge|\/checkpoint/.test(page.url())) {
+      if (!retried && page.url().includes("/accounts/login") && (await continueSavedLogin(page))) return openThread(page, handle, true);
+      throw new LoggedOut(page.url());
+    }
     return null;
   }
   await sleep(2500); // 이전 대화가 그려질 시간
