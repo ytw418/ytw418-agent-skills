@@ -162,6 +162,10 @@ async function typeExact(page, composer, lines) {
 
 // Enter 로 보내고, 그 글이 담긴 말풍선이 생겼는지 본다
 async function sendAndVerify(page, composer, lines, probe) {
+  // 말풍선 innerText 에는 이모지가 빠진다(10-13: '감사합니다!! 🙏' 로 찾다가 보낸 답장 2건을 실패로 봄)
+  // 이모지 자리는 줄바꿈처럼 그려지기도 해서 첫 이모지 앞까지만 쓴다
+  const beforeEmoji = probe.split(/\p{Extended_Pictographic}/u)[0].trim();
+  probe = (beforeEmoji || probe.replace(/\p{Extended_Pictographic}|️/gu, "").trim()).slice(0, 10);
   await page.keyboard.press("Enter");
   const bubble = page.getByRole("article").filter({ hasText: probe }).last();
   try {
