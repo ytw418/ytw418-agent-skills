@@ -59,7 +59,10 @@ function kstHour() {
 // templates.md 의 '### <제목>' 아래 첫 코드 블록 = 첫 메시지 틀(문구를 한 곳에서만 고치려고 파일에서 읽는다)
 function template(kind) {
   const md = fs.readFileSync(TEMPLATES, "utf8");
-  const heading = kind === "샵" ? "### 샵" : kind === "행사" ? "### 행사" : "### 브리더";
+  // 10-12 부터 모든 유형에 '첫 메시지 — 기본'(사용자 문구)을 쓴다. 10-14 까지 이 함수가 '이전 판' 칸을 읽어 74명이 옛 문구를 받았다.
+  const heading = md.includes("## 첫 메시지 — 기본")
+    ? "## 첫 메시지 — 기본"
+    : kind === "샵" ? "### 샵" : kind === "행사" ? "### 행사" : "### 브리더";
   const at = md.indexOf(heading);
   if (at < 0) throw new Error(`templates.md 에 '${heading}' 이 없다`);
   const m = md.slice(at).match(/```\n([\s\S]*?)\n```/);
