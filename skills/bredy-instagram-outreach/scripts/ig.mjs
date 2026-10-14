@@ -12,7 +12,7 @@
 //   node ig.mjs read <handle>        그 사람 대화 최근 메시지 JSON
 //   node ig.mjs reply <handle> <글>  답장(여러 줄은 글 안의 \n)
 //   node ig.mjs harvest <계정> <검색어...>  그 계정 팔로잉 창을 한글 검색어로 훑어 handle·표시 이름 JSON(기록 안 함 → outreach add)
-//   IG_FIELD=물고기 node ig.mjs send 30 --ignore-limit   그 분야 후보만 보낸다(한도를 넘길 땐 OUTREACH_DAILY_LIMIT 도 올린다)
+//   IG_FIELD=물고기,소동물 node ig.mjs send 30 --ignore-limit   그 분야(쉼표로 여럿) 후보만 보낸다(한도를 넘길 땐 OUTREACH_DAILY_LIMIT 도 올린다)
 // 옵션: --headless(창 안 띄움 — 읽기용. 보낼 땐 쓰지 않는다: 10-11 headless 로 6분에 28명 보낸 뒤 로그아웃) --dry(입력·검사까지만, 전송 안 함) --ignore-limit(하루 한도 무시, 사용자 승인 때만)
 // 밤 9시~아침 8시(KST)엔 send 를 거부한다(정보통신망법 50조 3항). 보낸 뒤 다음 사람까지 IG_GAP_SEC(기본 45초) 쉰다.
 
@@ -191,7 +191,7 @@ function candidates(n) {
       const [handle, nick = "", field = "", kind = ""] = r.split("\t");
       return { handle, nick, field, kind };
     })
-    .filter((t) => !only || t.field === only)
+    .filter((t) => !only || only.split(",").includes(t.field))
     .slice(0, n);
 }
 
@@ -211,6 +211,7 @@ async function cmdSend(want) {
   try {
     if (!(await loggedIn(page))) throw new Error("로그인 안 됨 → node ig.mjs login");
     for (const t of candidates(want * 4)) {
+      if (kstHour() >= 21) { result.stopped = "밤 9시 — 영업 메시지 중단(정보통신망법 50조 3항)"; break; }
       if (result.sent.length >= want) break;
       let composer;
       try {
