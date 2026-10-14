@@ -11,6 +11,8 @@
 //   node ig.mjs inbox                읽지 않은 대화를 열어 handle·최근 메시지를 JSON 으로
 //   node ig.mjs read <handle>        그 사람 대화 최근 메시지 JSON
 //   node ig.mjs reply <handle> <글>  답장(여러 줄은 글 안의 \n)
+//   node ig.mjs harvest <계정> <검색어...>  그 계정 팔로잉 창을 한글 검색어로 훑어 handle·표시 이름 JSON(기록 안 함 → outreach add)
+//   IG_FIELD=물고기 node ig.mjs send 30 --ignore-limit   그 분야 후보만 보낸다(한도를 넘길 땐 OUTREACH_DAILY_LIMIT 도 올린다)
 // 옵션: --headless(창 안 띄움 — 읽기용. 보낼 땐 쓰지 않는다: 10-11 headless 로 6분에 28명 보낸 뒤 로그아웃) --dry(입력·검사까지만, 전송 안 함) --ignore-limit(하루 한도 무시, 사용자 승인 때만)
 // 밤 9시~아침 8시(KST)엔 send 를 거부한다(정보통신망법 50조 3항). 보낸 뒤 다음 사람까지 IG_GAP_SEC(기본 45초) 쉰다.
 
@@ -179,10 +181,15 @@ async function sendAndVerify(page, composer, lines, probe) {
 
 function candidates(n) {
   const rows = outreach("next", "500").trim().split("\n").filter(Boolean);
-  return rows.slice(0, n).map((r) => {
-    const [handle, nick = "", field = "", kind = ""] = r.split("\t");
-    return { handle, nick, field, kind };
-  });
+  // IG_FIELD=물고기 처럼 주면 그 분야 후보만 보낸다(10-14 사용자: "물생활 하는 사람한테 30개")
+  const only = process.env.IG_FIELD;
+  return rows
+    .map((r) => {
+      const [handle, nick = "", field = "", kind = ""] = r.split("\t");
+      return { handle, nick, field, kind };
+    })
+    .filter((t) => !only || t.field === only)
+    .slice(0, n);
 }
 
 function roomToday() {
@@ -333,8 +340,45 @@ async function cmdLogin() {
   }
 }
 
+// 계정의 팔로잉 창에서 검색어마다 결과를 모은다(검색은 표시 이름까지 찾으니 한글로). 기록은 하지 않고 JSON 만 낸다.
+async function cmdHarvest(account, queries) {
+  const { ctx, page } = await openBrowser();
+  const found = {};
+  try {
+    if (!(await loggedIn(page))) throw new LoggedOut(page.url()); // 받은 메시지함으로 이동하니 프로필보다 먼저
+    await page.goto(`https://www.instagram.com/${account}/`, { waitUntil: "domcontentloaded" });
+    await sleep(4000);
+    // 팔로잉 수 링크는 href 가 '#' 이고 글자가 '팔로우 956' 이다(10-14 확인)
+    await page.locator("a", { hasText: /^팔로우\s*[\d,.]+/ }).first().click({ timeout: 20000 });
+    const dialog = page.locator('div[role="dialog"]').last();
+    const search = dialog.locator("input").first();
+    await search.waitFor({ timeout: 15000 });
+    for (const q of queries) {
+      await search.fill(q);
+      await sleep(3000);
+      const rows = await dialog.evaluate((dlg) => {
+        const out = {};
+        for (const a of dlg.querySelectorAll("a[href]")) {
+          const m = a.getAttribute("href").match(/^\/([A-Za-z0-9._]+)\/$/);
+          if (!m || out[m[1]]) continue;
+          let row = a;
+          for (let i = 0; i < 8 && row.parentElement && row.innerText.split("\n").length < 2; i++) row = row.parentElement;
+          out[m[1]] = row.innerText.replace(/\n+/g, " | ");
+        }
+        return out;
+      });
+      for (const [handle, text] of Object.entries(rows)) if (!found[handle]) found[handle] = { q, text };
+      await sleep(1500);
+    }
+  } finally {
+    await ctx.close();
+  }
+  console.log(JSON.stringify(found, null, 2));
+}
+
 const main = {
   login: cmdLogin,
+  harvest: () => cmdHarvest(args[0], args.slice(1)),
   check: async () => {
     const { ctx, page } = await openBrowser();
     try { console.log((await loggedIn(page)) ? "로그인됨" : "로그인 안 됨"); } finally { await ctx.close(); }
@@ -346,7 +390,7 @@ const main = {
 }[cmd];
 
 if (!main) {
-  console.log("usage: ig.mjs login|check|send [n]|inbox|read <handle>|reply <handle> <글>  [--headless --dry --ignore-limit]");
+  console.log("usage: ig.mjs login|check|send [n]|inbox|read <handle>|reply <handle> <글>|harvest <계정> <검색어...>  [--headless --dry --ignore-limit]");
   process.exit(1);
 }
 main().catch((e) => {
