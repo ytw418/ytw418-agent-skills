@@ -13,6 +13,7 @@
 //   node ig.mjs reply <handle> <글>  답장(여러 줄은 글 안의 \n)
 //   node ig.mjs harvest <계정> <검색어...>  그 계정 팔로잉 창을 한글 검색어로 훑어 handle·표시 이름 JSON(기록 안 함 → outreach add)
 //   IG_FIELD=물고기,소동물 node ig.mjs send 30 --ignore-limit   그 분야(쉼표로 여럿) 후보만 보낸다(한도를 넘길 땐 OUTREACH_DAILY_LIMIT 도 올린다)
+//   IG_TEMPLATE='## 식집사 1차' IG_TEMPLATE2='## 식집사 2차' … send   두 번에 나눠 보낸다(1차 확인 뒤 IG_PAIR_SEC(80)초 쉬고 2차)
 // 옵션: --headless(창 안 띄움 — 읽기용. 보낼 땐 쓰지 않는다: 10-11 headless 로 6분에 28명 보낸 뒤 로그아웃) --dry(입력·검사까지만, 전송 안 함) --ignore-limit(하루 한도 무시, 사용자 승인 때만)
 // 밤 9시~아침 8시(KST)엔 send 를 거부한다(정보통신망법 50조 3항). 보낸 뒤 다음 사람까지 IG_GAP_SEC(기본 45초) 쉰다.
 
@@ -35,6 +36,7 @@ const [cmd, ...args] = argv.filter((a) => !a.startsWith("--"));
 const HEADLESS = flags.has("--headless");
 const DRY = flags.has("--dry");
 const GAP_MS = Number(process.env.IG_GAP_SEC || 45) * 1000; // 보낸 뒤 다음 사람까지 쉬는 시간
+const PAIR_MS = Number(process.env.IG_PAIR_SEC || 80) * 1000; // 1차와 2차 사이
 
 const LIMIT_TEXT = /나중에 다시 시도|활동이 제한|Try Again Later|We restrict certain activity/;
 const BLOCKED_TEXT = /메시지를 받을 수 없습니다|보낼 수 있는 사람이 제한|메시지 요청을 허용하지 않|Not everyone can message/;
@@ -60,6 +62,7 @@ function kstHour() {
 function template(kind) {
   const md = fs.readFileSync(TEMPLATES, "utf8");
   // 10-12 부터 모든 유형에 '첫 메시지 — 기본'(사용자 문구)을 쓴다. 10-14 까지 이 함수가 '이전 판' 칸을 읽어 74명이 옛 문구를 받았다.
+  if (process.env.IG_TEMPLATE) return templateBlock(md, process.env.IG_TEMPLATE);
   const heading = md.includes("## 첫 메시지 — 기본")
     ? "## 첫 메시지 — 기본"
     : kind === "샵" ? "### 샵" : kind === "행사" ? "### 행사" : "### 브리더";
@@ -68,6 +71,19 @@ function template(kind) {
   const m = md.slice(at).match(/```\n([\s\S]*?)\n```/);
   if (!m) throw new Error(`templates.md '${heading}' 아래 코드 블록이 없다`);
   return m[1];
+}
+
+// templates.md 에서 heading 으로 시작하는 줄 아래 첫 코드 블록
+function templateBlock(md, heading) {
+  const at = md.search(new RegExp(`^${heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "m"));
+  if (at < 0) throw new Error(`templates.md 에 '${heading}' 이 없다`);
+  const m = md.slice(at).match(/```\n([\s\S]*?)\n```/);
+  if (!m) throw new Error(`templates.md '${heading}' 아래 코드 블록이 없다`);
+  return m[1];
+}
+
+function fillNick(text, nick) {
+  return (nick ? text.replaceAll("{닉네임}", nick) : text.replace(/ ?\{닉네임\}(님| 운영진님)?/, "")).split("\n");
 }
 
 function firstMessage(nick, kind, left) {
@@ -238,7 +254,15 @@ async function cmdSend(want) {
         result.failed.push(t.handle);
         continue;
       }
-      if (DRY) { log(`[dry] ${t.handle}: 입력 확인까지 OK`); result.sent.push(t.handle); continue; }
+      const second = process.env.IG_TEMPLATE2
+        ? fillNick(templateBlock(fs.readFileSync(TEMPLATES, "utf8"), process.env.IG_TEMPLATE2), t.nick)
+        : null;
+      if (DRY) {
+        if (second && !(await typeExact(page, composer, second))) log(`[dry] ${t.handle}: 2차 입력 불일치`);
+        log(`[dry] ${t.handle}: 입력 확인까지 OK${second ? "(1·2차)" : ""}`);
+        result.sent.push(t.handle);
+        continue;
+      }
       const r = await sendAndVerify(page, composer, lines, lines[1]);
       if (!r.ok) {
         outreach("mark", t.handle, "확인필요", "전송 확인 실패(크롬)");
@@ -253,7 +277,19 @@ async function cmdSend(want) {
         result.blocked.push(t.handle);
         continue;
       }
-      outreach("mark", t.handle, "보냄", "v4 크롬");
+      const memo = `${process.env.IG_TEMPLATE || "기본 문구"} 크롬`;
+      if (second) {
+        // 10-14 사용자: "첨부터 광고처럼 보내지 말고 두 번에 나눠서" → 1차(인사) 1~2분 뒤 2차(소개·링크)
+        await sleep(PAIR_MS);
+        if (await limitHit(page)) { outreach("mark", t.handle, "보냄", `${memo}, 1차만`); result.stopped = "제한 문구"; break; }
+        const ok2 = (await typeExact(page, composer, second)) && (await sendAndVerify(page, composer, second, second[0])).ok;
+        if (!ok2) {
+          outreach("mark", t.handle, "확인필요", `${memo}, 2차 전송 확인 실패`);
+          result.failed.push(t.handle);
+          continue;
+        }
+      }
+      outreach("mark", t.handle, "보냄", second ? `${memo} + 2차` : memo);
       result.sent.push(t.handle);
       log(`보냄 ${result.sent.length}/${want}: ${t.handle}`);
       if (await limitHit(page)) { result.stopped = "제한 문구"; break; }
