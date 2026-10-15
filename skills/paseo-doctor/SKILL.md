@@ -1,6 +1,6 @@
 ---
 name: paseo-doctor
-description: 로컬 Paseo(데스크톱 앱이 띄운 데몬)가 이상할 때 원인을 진단하고 고친다. Claude·Codex 에이전트가 응답하지 않거나 로그인 실패처럼 보일 때, 데몬 로그에 'Could not resolve host'·GitHubCommandError 가 쌓일 때, 앱 업데이트 뒤 데몬 버전이 낡았을 때, 사이드바 워크스페이스를 눌러도 엉뚱한(같은) 대화창만 열릴 때 쓴다. 사용자가 'Paseo 이상해', '데몬 고쳐줘', '에이전트가 응답 안 해', '클로드도 안 되고 아스트라도 안 돼', '코덱스 무응답', '워크스페이스 눌러도 같은 화면만 나와', 'paseo doctor' 등을 말할 때 사용한다. Paseo 사용법·설정 질문은 paseo-help, 에이전트·워크스페이스 조작은 paseo 스킬 담당.
+description: 로컬 Paseo(데스크톱 앱이 띄운 데몬)가 이상할 때 원인을 진단하고 고친다. Claude·Codex 에이전트가 응답하지 않거나 로그인 실패처럼 보일 때, 데몬 로그에 'Could not resolve host'·GitHubCommandError 가 쌓일 때, 앱 업데이트 뒤 데몬 버전이 낡았을 때, 사이드바 워크스페이스를 눌러도 엉뚱한(같은) 대화창만 열릴 때, Antigravity 등 프로바이더가 'not found on PATH' 로 연결되지 않거나 연결돼도 대답 없이 로딩만 할 때 쓴다. 사용자가 'Paseo 이상해', '데몬 고쳐줘', '에이전트가 응답 안 해', '클로드도 안 되고 아스트라도 안 돼', '코덱스 무응답', '워크스페이스 눌러도 같은 화면만 나와', '안티그래비티 연결 안 돼', '안티그래비티 로딩만 해', 'paseo doctor' 등을 말할 때 사용한다. Paseo 사용법·설정 질문은 paseo-help, 에이전트·워크스페이스 조작은 paseo 스킬 담당.
 ---
 
 # Paseo Doctor
@@ -74,6 +74,34 @@ bash ~/.claude/skills/paseo-doctor/scripts/diagnose.sh
    ```
    가까운 것은 #5581(아카이브 해제한 세션 탭이 다른 워크스페이스들에도 열림), #5447(늦게 온 워크스페이스 스냅샷이 상태를 덮어씀), #5522(Android 에서 워크스페이스 전환 시 "Agent not found")이다.
 6. 새 이슈를 올릴 때는 앱·데몬 버전, 플랫폼(데스크톱·iOS·Android·웹), 재현 순서, 그 시각 `~/Library/Logs/Paseo/main.log` 일부를 붙인다. 이슈 등록은 외부 공개이므로 사용자 확인 뒤에 한다.
+
+### C. Antigravity 프로바이더가 연결되지 않거나 대답 없이 로딩만 함 (2026-10-15 실제 사례)
+
+`diagnose.sh` 의 프로바이더 줄이나 MCP `list_providers` 의 `error` 를 먼저 본다. 데몬은 정상이어도 생긴다.
+
+C-1. `agy not found on PATH`
+- Paseo 는 IDE 실행 명령이 아니라 별도 프로그램인 **Antigravity CLI `agy`(1.1.15 이상)** 를 찾는다. `status` 확인에 `agy --version`, `agy models` 를 쓴다(`/Applications/Paseo.app/Contents/Resources/builtin-plugins/antigravity-provider/server/`).
+- 당시에는 CLI 가 설치되어 있지 않았고, `~/.antigravity/antigravity/bin/agy` 는 앱 업데이트로 사라진 옛 IDE 경로를 가리키는 깨진 링크였다.
+- 처방: 공식 스크립트를 내려받아 내용을 확인한 뒤 실행한다(SHA512 를 검사하고 `~/.local/bin/agy` 에 설치하며 `~/.zshrc` 에 PATH 를 추가한다). 깨진 `agy` 링크는 지운다. 데몬 재시작 없이 `inspect_provider antigravity` 가 `available` 이 된다.
+  ```bash
+  mkdir -p /tmp/agy-dl && curl -fsSL -o /tmp/agy-dl/install.sh https://antigravity.google/cli/install.sh
+  bash /tmp/agy-dl/install.sh && agy --version && agy models   # models 가 나오면 로그인도 된 것
+  ```
+
+C-2. 연결은 되는데 대답 없이 로딩만 함
+- 원인: `agy` 는 대답 전에 MCP 서버를 모두 불러오는데, 연결이 안 끝나는 서버가 있으면 거기서 멈춘다. `disabled: true` 인 서버도 기다린다(agy 1.3.5). 당시에는 옛 IDE 의 GitKraken(`gk mcp`)이었다.
+- 판별: `~/.gemini/antigravity-cli/log/cli-*.log` 에 `still connecting after ...: <서버명>` 이 30초마다 쌓이고 `Failed to append MCP servers from specs: context canceled` 로 끝난다.
+  ```bash
+  grep -h -E "still connecting|MCP servers from specs" ~/.gemini/antigravity-cli/log/cli-*.log | tail
+  agy mcp list
+  ```
+- 처방: CLI 설정 `~/.gemini/config/mcp_config.json` 을 백업한 뒤 걸리는 서버 항목을 지운다. IDE 는 `~/.gemini/antigravity-ide/mcp_config.json` 을 따로 쓰므로 영향이 없다. 확인은 Paseo 와 같은 인자로 직접 돌려 `result` 줄이 오는지 본다.
+  ```bash
+  ( printf '%s\n' '{"event":"user","message":{"content":"say hi"}}'; sleep 40 ) \
+    | agy --input-format stream-json --output-format stream-json --add-dir "$PWD" \
+          --disable-slash-commands --dangerously-skip-permissions --model gemini-3.8-flash-medium
+  ```
+- 멈춰 있던 에이전트는 메시지를 다시 보내면 새 `agy` 프로세스로 뜬다. 데몬·앱 재시작은 필요 없다.
 
 ## 2. 위치
 
