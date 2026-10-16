@@ -47,6 +47,7 @@ $S/pc js '(() => ...)()'           # 임의 JS (결과 문자열 출력), `pc js
   `Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el,v); el.dispatchEvent(new Event('input',{bubbles:true})); el.dispatchEvent(new Event('blur',{bubbles:true}))` (textarea 는 `HTMLTextAreaElement.prototype`).
 - **라디오 묶음**: `input[type=radio]` 를 `name` 으로 묶어 질문 순서대로 고른다. 질문이 답에 따라 늘어나면 다시 센다.
 - `다음`이 `disabled` 면 `저장`을 먼저 누른다(Play 콘솔 설문).
+- **화면이 잠겼거나 창이 가려져 탭이 숨김(`document.visibilityState === "hidden"`)이면** 일반 페이지 읽기·입력·저장은 되지만 **대화상자·사이드 패널은 열리지 않는다**(Play 콘솔 '문제 보기' 등). `cj <pid> show 0` 으로 창을 앞으로 꺼내고, 그래도 숨김이면 화면 잠금(`ioreg -n Root -d1 -a | grep -A1 CGSSessionScreenIsLocked`)을 확인해 사용자에게 잠금 해제를 부탁한다. rAF·visibility 를 JS 로 덮어써도 안 된다. 콘솔 데이터 요청은 gapi 프록시 iframe 에서 나가서 XHR 가로채기로도 못 읽는다.
 - `confirm/alert` 를 띄울 버튼(삭제 등)은 피한다 — 대화상자가 뜨면 JS 가 멈춘다.
 - 새 탭 만들기는 구현 안 함 → 사용자 탭을 `go` 로 옮긴다(빈 탭·작업 중이 아닌 탭인지 먼저 본다).
 - 파일 업로드 칸은 JS 로 못 채운다. 가능하면 API(예: Play `applications.dataSafety` 에 CSV 문자열)로 우회한다.
