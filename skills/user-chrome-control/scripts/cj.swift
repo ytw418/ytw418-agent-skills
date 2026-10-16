@@ -1,6 +1,7 @@
-// cj <pid> tabs | js <w> <t> <file|-> | open <w> <url> | activate <w> <t>
+// cj <pid> tabs | js <w> <t> <file|-> | go <w> <t> <url> | show <w>
 import Foundation
 import ScriptingBridge
+import AppKit
 let a = CommandLine.arguments
 guard a.count >= 3, let pid = pid_t(a[1]), let app = SBApplication(processIdentifier: pid) else { print("usage"); exit(2) }
 let windows = app.value(forKey: "windows") as! SBElementArray
@@ -27,5 +28,12 @@ case "go":
   let w = Int(a[3])!, t = Int(a[4])!
   tab(w, t).setValue(a[5], forKey: "URL")
   print("navigated")
+case "show":
+  let w = Int(a[3])!
+  let win = windows.object(at: w) as! SBObject
+  win.setValue(false, forKey: "minimized")
+  win.setValue(1, forKey: "index")
+  NSRunningApplication(processIdentifier: pid)?.activate()
+  print("shown minimized=\(win.value(forKey: "minimized") ?? "?")")
 default: print("unknown")
 }
