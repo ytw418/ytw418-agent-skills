@@ -145,6 +145,12 @@ function composerOf(page) {
 // 대화방을 연다. 입력창이 안 나오면 null(ig.me 가 없는 페이지로 가거나 DM 을 못 받는 계정)
 class LoggedOut extends Error {}
 
+// 알림 설정 같은 팝업이 입력창을 가리면 클릭이 막힌다(10-16) → '나중에 하기'를 누른다
+async function dismissPopups(page) {
+  const later = page.getByRole("button", { name: /^(나중에 하기|Not Now)$/ }).first();
+  if (await later.isVisible().catch(() => false)) { await later.click().catch(() => {}); await sleep(800); }
+}
+
 async function openThread(page, handle, retried = false) {
   await page.goto(`https://ig.me/m/${handle}`, { waitUntil: "domcontentloaded" });
   const composer = composerOf(page);
@@ -159,6 +165,7 @@ async function openThread(page, handle, retried = false) {
     return null;
   }
   await sleep(2500); // 이전 대화가 그려질 시간
+  await dismissPopups(page);
   return composer;
 }
 
