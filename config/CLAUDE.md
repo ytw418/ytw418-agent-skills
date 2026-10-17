@@ -8,6 +8,15 @@ Its purpose is to give you enough structured context to:
 
 ---
 
+## 0. 보고 언어 (MANDATORY)
+
+사용자에게 보내는 모든 글(중간 보고·최종 보고·질문·설명)은 **한국어**로 쓴다. 코드·명령어·파일 경로·고유명사·에러 원문만 원문 그대로 둔다.
+
+- 2026-10-18 로봇천국 카페 작업에서 보고를 영어로 써서 사용자가 읽지 못했다. 이 규칙은 훅으로도 강제된다.
+- `~/.claude/settings.json` 의 `"language": "korean"` + `~/.claude/hooks/korean-report.py`(UserPromptSubmit 리마인더, 영어 보고면 Stop 훅이 막고 다시 쓰게 함).
+
+---
+
 ## 1. Prerequisites (Initial Setup)
 
 이 문서는 초기 환경 셋업(Atlassian MCP, GitHub CLI, Perplexity MCP)이 **완료된 상태**를 전제합니다.
@@ -254,3 +263,4 @@ If you are an AI coding assistant:
 - **Prefix every commit message** with `[XX-XXXX]`.
 - **반복 가능한 작업** — 작업 완료 후 반복 가능성이 있으면 `/skill-creator`로 스킬화를 제안하고, 생성된 스킬은 반드시 커밋한다.
 - **모델 분업** — 기본 Opus. 설계만 `Agent(model: "fable")`, 찾기·읽기는 `Explore`(haiku/sonnet). 서브에이전트 `model`은 항상 명시한다.
+- **보고는 한국어** — 사용자에게 보내는 모든 글은 한국어로 쓴다(§0). 코드·명령어·경로만 원문.
