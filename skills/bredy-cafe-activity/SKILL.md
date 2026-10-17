@@ -42,7 +42,21 @@ pw(){ npx --yes --package @playwright/cli playwright-cli -s=bredy-mine "$@" 2>&1
 
 네이버가 로그아웃돼 있으면 크롬 저장 비밀번호가 채워진 로그인 화면에서 '로그인'만 누른다.
 
-## 순서
+## 빠른 길 (일괄 도구, 2026-10-17)
+
+여러 개를 할 때는 단계별 명령 대신 `scripts/cafe.py` 두 번으로 끝낸다(토큰·시간 절약).
+
+```bash
+cd ~/Desktop/pro/bredy-marketing   # cafe.py 는 저장소 scripts/ 에도 같은 사본이 있다
+D=content/$(date +%F)-cafe; mkdir -p $D
+SCROLLS=6 MAXCMT=3 PW_SESSION=bredy-mine python3 scripts/cafe.py collect $D/cands.json 30   # 질문 후보 + 본문 요약(이미 단 글·등급 잠금·댓글 많은 글 제외)
+# → 고른 질문으로 $D/plan.json 작성: [{"cafe":"hby|reptilia","id":…,"comment":"…{BLOG}", "blog":{"file","title","category","tags","photo"}}]
+PW_SESSION=bredy-mine python3 scripts/cafe.py run $D/plan.json   # 백그라운드로. 블로그 발행 → 댓글({BLOG} 치환) → $D/log.md, 댓글 사이 3~6분
+```
+
+사용자가 하루 개수를 늘려 달라고 하면 링크 댓글은 절반 정도만(나머지는 링크 없이 답만) 두어 스팸 신호를 줄인다.
+
+## 순서 (한 개씩 할 때)
 
 1. **질문 모으기** — 카페 모바일 홈을 스크롤해 질문형 제목만 뽑는다(토큰 아끼려고 스냅샷 대신 eval 한 번).
    ```bash
