@@ -314,6 +314,10 @@ git push origin <current branch name>
 - 붙기: 셸 `source ~/.local/bin/bhsn-pw.sh <사이트>; trap hpw_end EXIT` 뒤 `hpw <playwright-cli 명령…>`. 자기 탭을 열고 닫으며 같은 사이트는 잠금(`/tmp/bhsn-chrome-locks`)으로 차례대로 돈다. 다른 도구는 `--cdp http://127.0.0.1:9224` 로 붙는다. `tab-select`·탭 번호 금지.
 - 브리디 자동화 크롬(9222)과 섞지 않는다 — 회사 계정은 9224, 브리디·개인 운영 계정은 9222. 로그인(SSO·비밀번호)은 사용자가 직접 하고, 풀려 있으면 알리고 로그인 탭을 열어 둔다.
 
+## 11. 개인 할 일 목록 (2026-10-18, 사용자 결정)
+
+사용자가 **직접** 해야 하는 일(결제·본인 인증·개인정보·서명·사용자 결정·폰에서 할 일)을 남기면, 보고와 함께 `~/Desktop/pro/personal-todo/todo.md` '할 일' 절에 한 줄 추가한다(형식은 그 파일 머리말). 사용자가 "○○ 했어"라고 하면 해당 항목을 '완료' 절로 옮긴다. 매일 08:00 KST Paseo 일정 '개인 할 일 아침 브리핑'이 이 목록과 지난 세션을 훑어 브리핑한다(절차 `~/Desktop/pro/personal-todo/CLAUDE.md`). 회사·개인 저장소 모두 적용한다.
+
 ## 10. Quick Reference
 
 If you are an AI coding assistant:
