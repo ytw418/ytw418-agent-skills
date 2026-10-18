@@ -147,7 +147,8 @@ sync_claude_overlay() {
 
   write_state "$claude_base"
 
-  rm -rf "$CLAUDE_RUNTIME_DIR"
+  # 덮어쓰기만 한다(2026-10-18): 통째로 지우면 Paseo 가 넣은 paseo-* 스킬·claude.ai 'synced' 폴더·
+  # 아직 main 에 없는 작업 중 스킬 링크까지 사라진다. 저장소에 있는 스킬 이름만 새로 연결하고 나머지는 그대로 둔다.
   mkdir -p "$CLAUDE_RUNTIME_DIR"
 
   link_skill_set_into_runtime "$claude_base" "$CLAUDE_RUNTIME_DIR"
