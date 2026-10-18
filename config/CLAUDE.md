@@ -316,7 +316,7 @@ git push origin <current branch name>
 
 ## 11. 개인 할 일 목록 (2026-10-18, 사용자 결정)
 
-사용자가 **직접** 해야 하는 일(결제·본인 인증·개인정보·서명·사용자 결정·폰에서 할 일)을 남기면, 보고와 함께 `~/Desktop/pro/personal-todo/todo.md` '할 일' 절에 한 줄 추가한다(형식은 그 파일 머리말). 사용자가 "○○ 했어"라고 하면 해당 항목을 '완료' 절로 옮긴다. 매일 08:00 KST Paseo 일정 '개인 할 일 아침 브리핑'이 이 목록과 지난 세션을 훑어 브리핑한다(절차 `~/Desktop/pro/personal-todo/CLAUDE.md`). 회사·개인 저장소 모두 적용한다.
+사용자가 **직접** 해야 하는 일(결제·본인 인증·개인정보·서명·사용자 결정·폰에서 할 일)을 남기면, 보고와 함께 `~/Desktop/pro/personal-todo/todo.md` '할 일' 절에 한 줄 추가한다(형식은 그 파일 머리말). 사용자가 "○○ 했어"라고 하면 해당 항목을 '완료' 절로 옮긴다. 목록을 고치면 `python3 -I ~/Desktop/pro/personal-todo/sync_notes.py ~/Desktop/pro/personal-todo/briefing.md` 로 애플 메모 '📋 개인 할 일'(사용자가 보는 곳)도 갱신한다. 매일 08:00 KST Paseo 일정 '개인 할 일 아침 브리핑'이 이 목록과 지난 세션을 훑어 브리핑한다(절차 `~/Desktop/pro/personal-todo/CLAUDE.md`). 회사·개인 저장소 모두 적용한다.
 
 ## 10. Quick Reference
 
