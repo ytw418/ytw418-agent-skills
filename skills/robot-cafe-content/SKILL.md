@@ -8,7 +8,7 @@ description: 로봇천국 네이버 카페(cafe.naver.com/zxgamezx)에 운영 �
 운영 규칙은 `~/Desktop/pro/robot-cafe/docs/prd/robot-cafe-ops-policy.md`(RC-OPS-001)가 기준이다. 이 스킬은 그중 P-6(콘텐츠 운영)·P-7(말투)·P-8(저작권)을 실행한다.
 
 - 데이터 폴더 `$RC_HOME` = `~/Desktop/pro/robot-cafe` — 브라우저 프로필(`.chrome-profile`), 날짜별 기록(`content/<YYYY-MM-DD>/`), PRD
-- 계정은 본계정 ytw418(카페 별명 kingdom). 본계정이 카페 5개를 운영하므로 **하루 최대 3개, 글 사이 2시간 이상**을 반드시 지킨다.
+- 계정은 운영자 본계정(카페 별명 kingdom). 본계정이 카페 5개를 운영하므로 **하루 최대 3개, 글 사이 2시간 이상**을 반드시 지킨다.
 - 스크립트는 이 스킬의 `scripts/`에 있다. 아래 `S=<이 스킬 폴더>/scripts`.
 
 ## 매일 뉴스 순서

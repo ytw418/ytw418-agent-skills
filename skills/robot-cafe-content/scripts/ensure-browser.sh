@@ -12,7 +12,7 @@ url=$($D/pw.sh eval "location.href")
 if [[ "$url" == *nid.naver.com* ]]; then
   filled=$($D/pw.sh eval "(()=>{const id=document.querySelector('#id'),pw=document.querySelector('#pw'); return (id&&id.value||'')+'|'+!!(pw&&pw.value)})()")
   echo "로그인 화면: $filled"
-  [[ "$filled" == *ytw418*true* ]] || { echo "저장된 아이디·비밀번호가 채워지지 않음 — 사람이 로그인해야 함"; exit 2; }
+  [[ "$filled" == ?*\|true ]] || { echo "저장된 아이디·비밀번호가 채워지지 않음 — 사람이 로그인해야 함"; exit 2; }
   $D/snap.sh >/dev/null
   keep=$($D/ref.sh 'checkbox "로그인 상태 유지"'); [ -n "$keep" ] && pwc check $keep >/dev/null
   pwc click $($D/ref.sh 'button "로그인"') >/dev/null; sleep 6

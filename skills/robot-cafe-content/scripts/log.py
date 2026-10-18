@@ -13,7 +13,7 @@ title = open(title_f).read().strip()
 used = re.findall(r'https?://\S+', open(body_f).read())
 src = {s['url']: s for s in json.load(open(src_f))}
 head = '' if os.path.exists(p) else f'# {now.date().isoformat()} 등록 기록\n\n| 시각(KST) | 게시판 | 제목 | 주소 | 계정 |\n|---|---|---|---|---|\n'
-row = f'| {now:%H:%M} | {board} | {title} | {url} | ytw418 (kingdom) |\n'
+row = f'| {now:%H:%M} | {board} | {title} | {url} | 본계정 (kingdom) |\n'
 srcs = '\n'.join(f"| {src.get(u, {}).get('media', '?')} | {src.get(u, {}).get('date', '?')} | {u} |" for u in used)
 with open(p, 'a') as f:
     f.write(head + row + f'\n### 출처 ({now:%H:%M} 글)\n\n| 매체 | 게재일 | 주소 |\n|---|---|---|\n{srcs}\n\n- 검사: {note}\n\n')
