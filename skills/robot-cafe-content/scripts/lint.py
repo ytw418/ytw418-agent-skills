@@ -1,16 +1,32 @@
 #!/usr/bin/env python3
-"""usage: lint.py <제목.txt> <본문.txt> [--sources sources.json] [--fetch]
-카페 글 검사: 공식 말투(SNS 말투 금지), 금지 표현, 출처 줄과 링크 수, 검증된 링크만, 원문과 20자 이상 똑같은 문장."""
+"""usage: lint.py <제목.txt> <본문.txt> [--kind news|guide|jobs|events|talk] [--sources sources.json] [--fetch]
+카페 글 검사: 공식 말투(SNS 말투 금지), 금지 표현, 글 종류별 제목·링크 수, 링크마다 '출처:/공고:/안내:' 줄,
+검증된 링크만, (news·guide·talk) 원문과 20자 이상 똑같은 문장."""
 import html, json, re, subprocess, sys
 
 args = sys.argv[1:]
 title, body = open(args[0]).read().strip(), open(args[1]).read()
-sources = json.load(open(args[args.index('--sources') + 1])) if '--sources' in args else None
+opt = lambda k, d=None: args[args.index(k) + 1] if k in args else d
+kind = opt('--kind', 'news')
+sources = json.load(open(opt('--sources'))) if '--sources' in args else None
+RULES = {  # 제목 접두어, 링크 수 범위, 본문 글자 수 범위
+    'news': ('[오늘의 로봇 뉴스]', (3, 6), (600, 3000)),
+    'guide': (None, (1, 5), (600, 2500)),
+    'jobs': ('[이번 주 로봇 채용]', (3, 10), (300, 3000)),
+    'events': ('[로봇 행사]', (2, 8), (300, 2500)),
+    'talk': (None, (0, 3), (150, 1200)),
+}
+prefix, (lo, hi), (cmin, cmax) = RULES[kind]
 errs, warns = [], []
-if not title.startswith('[오늘의 로봇 뉴스]'):
-    errs.append('제목은 [오늘의 로봇 뉴스]로 시작해야 함')
+if prefix and not title.startswith(prefix):
+    errs.append(f'제목은 {prefix}로 시작해야 함')
+if not prefix and title.startswith('['):
+    warns.append('말머리가 제목 앞에 붙으므로 제목에 [..]를 또 쓰지 않는 게 좋음')
+if not cmin <= len(body) <= cmax:
+    errs.append(f'본문 {len(body)}자 — {cmin}~{cmax}자')
 lines = [l.strip() for l in body.split('\n') if l.strip()]
-prose = [l for l in lines if not l.startswith('출처')]
+link_line = re.compile(r'^(출처|공고|안내):')
+prose = [l for l in lines if not link_line.match(l)]
 for l in prose:
     if re.search(r'(함|임|듯|음|됨|봄|ㅋ+|ㅎ+|ㅠ+)[.!?~]*$', l):
         errs.append('SNS 말투 줄: ' + l[:40])
@@ -22,15 +38,15 @@ if body.count('것 같습니다') > 2:
 if body.count('네요') > 5:
     warns.append('"~네요" %d번' % body.count('네요'))
 urls = re.findall(r'https?://\S+', body)
-src_lines = [l for l in lines if l.startswith('출처')]
-if len(src_lines) != len(urls):
-    errs.append('출처 줄 %d개, 링크 %d개 — 소식마다 출처 한 줄' % (len(src_lines), len(urls)))
-if not 3 <= len(urls) <= 6:
-    errs.append('소식 %d건 — 3~6건' % len(urls))
+bare = [l for l in lines if re.search(r'https?://', l) and not link_line.match(l)]
+if bare:
+    errs.append('링크는 출처:/공고:/안내: 줄에만 — ' + bare[0][:40])
+if not lo <= len(urls) <= hi:
+    errs.append(f'링크 {len(urls)}개 — {lo}~{hi}개')
 if sources is not None:
     ok = {s['url'] for s in sources if s.get('verified')}
     errs += ['검증 목록에 없는 링크: ' + u for u in urls if u not in ok]
-if '--fetch' in args:
+if '--fetch' in args and kind in ('news', 'guide', 'talk'):
     norm = lambda s: re.sub(r'\s+', '', s)
     for u in urls:
         raw = subprocess.run(['curl', '-sL', '--max-time', '15', '-A', 'Mozilla/5.0', u], capture_output=True).stdout.decode('utf-8', 'ignore')

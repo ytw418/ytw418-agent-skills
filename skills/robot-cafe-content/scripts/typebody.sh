@@ -7,8 +7,10 @@ pwc click $1 >/dev/null; sleep 0.5
 n=$(grep -c "" $2); i=0
 while IFS= read -r line || [ -n "$line" ]; do
   i=$((i+1)); [ -n "$line" ] && { pwc type "$line" >/dev/null; sleep 0.4; }
-  [ $i -lt $n ] && { pwc press Enter >/dev/null; sleep 0.25; }
-  case "$line" in *http*) sleep 3;; esac
+  case "$line" in
+    *http*) pwc press Enter >/dev/null; sleep 3;;   # 링크 줄은 마지막 줄이어도 Enter 를 쳐야 링크·미리보기 카드가 된다
+    *) [ $i -lt $n ] && { pwc press Enter >/dev/null; sleep 0.25; };;
+  esac
 done < $2
 J=$($D/pw.sh eval "JSON.stringify([...document.querySelectorAll('.se-text-paragraph')].map(p=>p.innerText))" | python3 -c "import sys,json;print(json.loads(sys.stdin.read()))")
 python3 $D/cmp.py $2 "$J"
