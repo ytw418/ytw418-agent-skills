@@ -1,7 +1,8 @@
-"""네이버 카페 글에 댓글 달기(모바일 웹). 사용: cafe-comment.py <글 주소> <댓글 파일>  — PW_SESSION(기본 bredy-mine) 세션 사용, 끝에 다시 열어 첫 15자로 확인."""
 import os, re, subprocess, sys, time
+import sys as _s; _s.path.insert(0, "/Users/yoonseongjun/Desktop/pro/bredy-marketing/scripts"); import bpw  # 자동화 크롬 도우미(2026-10-18)
+SESSION = bpw.start("naver")
 def pw(*a):
-    r = subprocess.run(["npx","--yes","--package","@playwright/cli","playwright-cli",f"-s={os.environ.get('PW_SESSION', 'bredy-mine')}",*a], cwd="/Users/yoonseongjun/Desktop/pro/bredy-marketing", capture_output=True, text=True); return r.stdout + r.stderr
+    r = subprocess.run(["npx","--yes","--package","@playwright/cli","playwright-cli",f"-s={SESSION}",*a], cwd="/Users/yoonseongjun/Desktop/pro/bredy-marketing", capture_output=True, text=True); return r.stdout + r.stderr
 def ref(p, last=False):
     rs = [re.search(r"\[ref=([a-z0-9]+)\]", l).group(1) for l in pw("snapshot").splitlines() if re.search(p, l)]
     return (rs[-1] if last else rs[0]) if rs else None

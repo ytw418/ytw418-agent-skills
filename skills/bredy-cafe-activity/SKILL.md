@@ -29,18 +29,12 @@ description: 브리디 운영자 네이버 계정으로 생물 카페(물생활 
 
 ## 브라우저
 
-`~/Desktop/pro/bredy-marketing` 에서 Playwright CLI 를 쓴다. 기본 세션(bredy-sns)은 **다른 Claude 세션들도 같이 써서 탭이 바뀐다** → 이 스킬은 내 세션을 따로 연다.
+**브리디 자동화 크롬**(`~/.bredy-chrome`, CDP 127.0.0.1:9222) 하나에 붙는다(2026-10-18 정책 — `~/Desktop/pro/bredy-marketing/docs/browser-automation.md`). 스크립트가 알아서 붙고(`bpw`), 자기 탭을 열어 쓰고 닫으며, 네이버 작업끼리는 사이트 잠금으로 차례대로 돈다. 프로필 복제·`PW_SESSION`·`tab-select` 는 쓰지 않는다.
 
 ```bash
 cd ~/Desktop/pro/bredy-marketing
-export PW_SESSION=bredy-mine
-# 처음 한 번(또는 로그인이 풀렸을 때): 로그인된 프로필 복제
-[ -d .chrome-profile-mine ] || { cp -cR .chrome-profile .chrome-profile-mine && rm -f .chrome-profile-mine/Singleton*; }
-npx --yes --package @playwright/cli playwright-cli -s=bredy-mine open "https://m.cafe.naver.com/hby" --browser chrome --headed --profile "$PWD/.chrome-profile-mine"
-pw(){ npx --yes --package @playwright/cli playwright-cli -s=bredy-mine "$@" 2>&1; }
+node scripts/bchrome.mjs check   # 로그인 점검(❌ 면 사용자에게 알리고 자동화 크롬에 로그인 탭을 열어 둔다)
 ```
-
-네이버가 로그아웃돼 있으면 크롬 저장 비밀번호가 채워진 로그인 화면에서 '로그인'만 누른다.
 
 ## 빠른 길 (일괄 도구, 2026-10-17)
 
@@ -49,9 +43,9 @@ pw(){ npx --yes --package @playwright/cli playwright-cli -s=bredy-mine "$@" 2>&1
 ```bash
 cd ~/Desktop/pro/bredy-marketing   # cafe.py 는 저장소 scripts/ 에도 같은 사본이 있다
 D=content/$(date +%F)-cafe; mkdir -p $D
-SCROLLS=6 MAXCMT=3 PW_SESSION=bredy-mine python3 scripts/cafe.py collect $D/cands.json 30   # 질문 후보 + 본문 요약(이미 단 글·등급 잠금·댓글 많은 글 제외)
+SCROLLS=6 MAXCMT=3 python3 scripts/cafe.py collect $D/cands.json 30   # 질문 후보 + 본문 요약(이미 단 글·등급 잠금·댓글 많은 글 제외)
 # → 고른 질문으로 $D/plan.json 작성: [{"cafe":"hby|reptilia","id":…,"comment":"…{BLOG}", "blog":{"file","title","category","tags","photo"}}]
-PW_SESSION=bredy-mine python3 scripts/cafe.py run $D/plan.json   # 백그라운드로. 블로그 발행 → 댓글({BLOG} 치환) → $D/log.md, 댓글 사이 3~6분
+python3 scripts/cafe.py run $D/plan.json   # 백그라운드로. 블로그 발행 → 댓글({BLOG} 치환) → $D/log.md, 댓글 사이 3~6분
 ```
 
 사용자가 하루 개수를 늘려 달라고 하면 링크 댓글은 절반 정도만(나머지는 링크 없이 답만) 두어 스팸 신호를 줄인다.
@@ -67,7 +61,7 @@ PW_SESSION=bredy-mine python3 scripts/cafe.py run $D/plan.json   # 백그라운�
 2. **본문·댓글 읽기** — `https://m.cafe.naver.com/ca-fe/web/cafes/<clubid>/articles/<id>` 를 열어 '작성일'부터 '댓글을 남겨' 앞까지 텍스트만 읽는다. '○촌 등급 이상만 볼 수 있는 게시판'이면 그 카페는 건너뛴다.
 3. **블로그 글** — `content/<YYYY-MM-DD>-cafe/blog-<주제>.txt`. 질문자가 헷갈린 지점부터 답하고, 확인 방법·주의점을 짧은 줄로. 끝 두 줄은 브리디 연결 문장 + 링크(브리디 정보글 `https://bredy.app/posts/<id>` 또는 `https://bredy.app/posts`). **URL 은 맨 마지막 줄**(뒤에 글을 더 치면 링크 미리보기 때문에 에디터 커서가 튀어 순서가 섞인다).
    ```bash
-   PW_SESSION=bredy-mine python3 ~/.claude/skills/bredy-cafe-activity/scripts/naver-photos.py <본문.txt> "<제목>" "<카테고리>" "<태그,태그>" assets/photos/<CC0 사진>
+   python3 ~/.claude/skills/bredy-cafe-activity/scripts/naver-photos.py <본문.txt> "<제목>" "<카테고리>" "<태그,태그>" assets/photos/<CC0 사진>
    ```
    카테고리: 물고기 → `물고기 키우기`, 파충류·곤충 → `브리디 소식`. 사진은 `assets/photos/SOURCES.md` 의 CC0 만. 출력된 글 주소를 확인한다.
 4. **카페 댓글** — `content/<날짜>-cafe/c-<주제>.txt`(마지막 줄 = 블로그 링크).

@@ -1,4 +1,4 @@
-"""카페 활동 일괄 도구(토큰·시간 절약용). 브라우저는 PW_SESSION(기본 bredy-mine) Playwright CLI 세션.
+"""카페 활동 일괄 도구(토큰·시간 절약용). 브라우저는 자동화 크롬(scripts/bpw.py).
   python3 scripts/cafe.py collect <out.json> [카페당 후보 수=8]   — 홈다리·파사모 최근 질문 후보를 본문·댓글 요약과 함께 모은다
   python3 scripts/cafe.py run <plan.json>                          — 블로그 글(있으면) 발행 → 댓글({BLOG} 자리에 주소) → log.md 기록, 댓글 사이 3~6분
 plan.json: [{"cafe":"hby","id":2800700,"comment":"…{BLOG}…", "blog":{"file":"…txt","title":"…","category":"…","tags":"a,b","photo":"assets/photos/…"}}]
@@ -6,7 +6,7 @@ plan.json: [{"cafe":"hby","id":2800700,"comment":"…{BLOG}…", "blog":{"file":
 import json, os, random, re, subprocess, sys, time
 
 CWD = "/Users/yoonseongjun/Desktop/pro/bredy-marketing"
-SESSION = os.environ.get("PW_SESSION", "bredy-mine")
+SESSION = None  # collect 에서만 자동화 크롬에 붙는다(run 은 하위 스크립트가 각자 붙음)
 CAFES = {"hby": 10135947, "reptilia": 12440585}
 Q = r"[?？]|질문|궁금|도와|왜|어떻게|괜찮|되나|될까|문의|방법|인가요|일까요|맞나요|할까요"
 SKIP = r"^\[|분양|판매|나눔|후기|공지|이벤트|동정|병인가|정체|뭘까|뭔가요|뭐죠"  # 홍보·사진 판별형 질문 제외
@@ -31,6 +31,9 @@ def article_url(cafe, aid):
 
 
 def collect(out, n):
+    global SESSION
+    import sys as _s; _s.path.insert(0, CWD + "/scripts"); import bpw
+    SESSION = bpw.start("naver")
     done = set()
     for f in os.popen(f"ls {CWD}/content/*-cafe/log.md 2>/dev/null").read().split():
         done |= set(re.findall(r"#(\d+)", open(f, encoding="utf-8").read()))
@@ -60,15 +63,14 @@ def run(plan_path):
         if it.get("blog"):
             b = it["blog"]
             r = subprocess.run(["python3", f"{CWD}/blog/naver-photos.py", b["file"], b["title"], b["category"], b["tags"], b["photo"]],
-                               cwd=CWD, capture_output=True, text=True, env={**os.environ, "PW_SESSION": SESSION})
+                               cwd=CWD, capture_output=True, text=True)
             blog = (r.stdout.strip().splitlines() or [""])[-1]
             if not blog.startswith("https://"):
                 print(f"{it['cafe']} #{it['id']} 블로그 실패: {blog}", flush=True); continue
         text = it["comment"].replace("{BLOG}", blog).strip()
         tmp = f"/tmp/cafe-c-{it['id']}.txt"
         open(tmp, "w", encoding="utf-8").write(text)
-        r = subprocess.run(["python3", f"{CWD}/scripts/cafe-comment.py", article_url(it["cafe"], it["id"]), tmp], cwd=CWD, capture_output=True, text=True,
-                           env={**os.environ, "PW_SESSION": SESSION})
+        r = subprocess.run(["python3", f"{CWD}/scripts/cafe-comment.py", article_url(it["cafe"], it["id"]), tmp], cwd=CWD, capture_output=True, text=True)
         res = (r.stdout.strip().splitlines() or ["?"])[-1]
         line = f"- {time.strftime('%H:%M')} {it['cafe']} #{it['id']} {res} | 블로그 {blog or '-'} | {text.splitlines()[0][:50]}"
         print(line, flush=True)

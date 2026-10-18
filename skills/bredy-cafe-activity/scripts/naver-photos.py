@@ -6,17 +6,15 @@
 본문은 blog/shorts-1015/<ep>.txt 에서 @@VID 줄을 뺀 것. URL 로 끝나는 줄 뒤 Enter 는 링크 미리보기로 먹히므로 빈 줄을 하나 더 넣는다.
 네이버가 로그아웃돼 있으면 크롬 저장 비밀번호로 '로그인'을 누른다."""
 import json, os, re, subprocess, sys, time
-SESSION = os.environ.get("PW_SESSION", "bredy-sns")  # 다른 세션과 브라우저가 겹치면 PW_SESSION=bredy-mine
+import sys as _s; _s.path.insert(0, "/Users/yoonseongjun/Desktop/pro/bredy-marketing/scripts"); import bpw  # 자동화 크롬 도우미(2026-10-18)
+SESSION = bpw.start("naver")
 
 CWD = "/Users/yoonseongjun/Desktop/pro/bredy-marketing"
 
 
-TAB = None  # 다른 세션도 같은 브라우저를 써서 현재 탭이 바뀔 수 있다 — 조작 전마다 이 탭으로 되돌린다
 
 
 def pw(*args):
-    if TAB and args and args[0] in ("click", "type", "press", "upload", "snapshot", "goto"):
-        subprocess.run(["npx", "--yes", "--package", "@playwright/cli", "playwright-cli", f"-s={SESSION}", "tab-select", TAB], cwd=CWD, capture_output=True)
     r = subprocess.run(["npx", "--yes", "--package", "@playwright/cli", "playwright-cli", f"-s={SESSION}", *args],
                        cwd=CWD, capture_output=True, text=True)
     return r.stdout + r.stderr
@@ -45,12 +43,6 @@ def main():
         body.append(line)
         if re.search(r"https?://\S+$", line):
             body.append("")
-    tabs = pw("tab-list")
-    m = re.search(r"- (\d+):[^\n]*blog\.naver\.com", tabs) or re.search(r"- (\d+):[^\n]*nid\.naver\.com", tabs)
-    global TAB
-    if m:
-        TAB = m.group(1)
-        pw("tab-select", TAB)
     pw("goto", "https://blog.naver.com/PostWriteForm.naver?blogId=bredy_team")
     time.sleep(9)
     if "nid.naver.com" in pw("tab-list"):
@@ -72,7 +64,7 @@ def main():
     out = pw("click", need(r'button "사진 추가"', "사진 버튼"))
     if "File chooser" not in out:
         print("파일 선택 창이 안 뜸"); sys.exit(1)
-    pw("upload", *[(p if p.startswith("/") else f"{CWD}/{p}") for p in photos])
+    pw("upload", *[f"{CWD}/{p}" for p in photos])
     time.sleep(6)
     ind = refs(r'generic \[ref=[^]]+\] \[cursor=pointer\]: 개별사진')
     if ind:
