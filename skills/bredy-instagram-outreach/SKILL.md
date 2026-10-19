@@ -48,6 +48,12 @@ node $IG check | inbox | read <handle> | reply <handle> <글> | send [n] [--dry]
 - 차단 회피 위장(일부러 넣는 무작위 지연, 다계정, 탐지 우회 도구)은 쓰지 않는다. 인스타가 제한 경고를 띄우면 그날 중단하고 알린다.
 - targets.csv·로그는 저장소에 커밋하지 않는다(다른 사람 계정 정보).
 
+## 두 번째 계정 — 개발자 본인 lcaros_rn (2026-10-20)
+
+- 사용자 본인 개발자 계정(같은 계정 센터에 묶임)도 쓴다. `IG_ACCOUNT=lcaros_rn` 이면 크롬 프로필 `chrome-profile-lcaros_rn` 을 따로 띄운다(로그인: `IG_ACCOUNT=lcaros_rn node scripts/ig.mjs login` → 사용자가 직접 로그인).
+- 문구는 `## 개발자 계정 1차`(만든 사람이라고 밝힌다, 이용자인 척 추천 금지). 보낸 기록 메모 앞에 `[lcaros_rn]` 이 붙는다 — 그 사람 답장은 lcaros_rn 메시지함에서 읽는다(`IG_ACCOUNT=lcaros_rn … read/inbox`).
+- 후보·하루 한도(targets.csv)는 두 계정이 같이 쓴다. 한 사람에게 두 계정이 다 보내지 않고, 계정을 늘려 하루 보내는 수를 늘리지 않는다(Meta 스팸 정책·계정 센터로 묶인 계정 동시 제한 위험).
+
 ## 예전 방식 (기록)
 
 10-11 `ig.mjs` 가 자기 프로필 창을 켰다 꺼서 사용자가 불편해했고(10-12) Paseo 브라우저로 바꿨다. 10-18 부터는 `ig.mjs` 가 늘 떠 있는 자동화 크롬의 자기 탭만 열고 닫아 창이 켜졌다 꺼지지 않는다 → 다시 `ig.mjs` 가 기본이다. Paseo 브라우저 방식(`references/browser-recipe.md`)은 쓰지 않는다.
