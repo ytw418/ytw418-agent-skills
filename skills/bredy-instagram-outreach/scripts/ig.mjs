@@ -5,7 +5,7 @@
 //
 // 준비(한 번): cd $OUTREACH_DIR/runner && npm i playwright-core   (Google Chrome 이 설치돼 있어야 한다)
 //
-//   node ig.mjs login                크롬 창을 띄운다 → 사용자가 bredy_breeder 로 직접 로그인(비밀번호는 스크립트가 보지 않음)
+//   node ig.mjs login                크롬 창을 띄운다 → 사용자가 bredy_breeder(또는 IG_ACCOUNT) 로 직접 로그인(비밀번호는 스크립트가 보지 않음)
 //   node ig.mjs check                로그인 상태 확인
 //   node ig.mjs send [n]             후보(targets.csv '후보')에게 첫 메시지 — 실제 보냄 n명(기본 7)이 될 때까지
 //   node ig.mjs inbox                읽지 않은 대화를 열어 handle·최근 메시지를 JSON 으로
@@ -25,7 +25,10 @@ import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const DIR = process.env.OUTREACH_DIR || path.join(os.homedir(), "Documents", "bredy-outreach");
-const PROFILE = path.join(DIR, "chrome-profile");
+// 두 번째 계정(10-20 사용자: 개발자 본인 계정 lcaros_rn 도 마케팅에)은 IG_ACCOUNT 로 고른다. 계정마다 크롬 프로필을 따로 써서
+// 다른 계정으로 잘못 보내는 일이 없게 한다. 후보·보낸 수(targets.csv)는 두 계정이 같이 써서 한 사람에게 두 번 가지 않고 하루 한도도 합쳐 센다.
+const ACCOUNT = process.env.IG_ACCOUNT || "bredy_breeder";
+const PROFILE = path.join(DIR, ACCOUNT === "bredy_breeder" ? "chrome-profile" : `chrome-profile-${ACCOUNT}`);
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const OUT = path.join(HERE, "outreach.mjs");
 const TEMPLATES = path.join(HERE, "..", "references", "templates.md");
@@ -51,8 +54,11 @@ try {
 
 const log = (...a) => console.error(...a);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const outreach = (...a) =>
-  execFileSync("node", [OUT, ...a], { encoding: "utf8", env: { ...process.env, OUTREACH_DAILY_LIMIT: "100000" } });
+const outreach = (...a) => {
+  // 보낸 계정을 메모에 남긴다(답장은 그 계정 메시지함에서 읽어야 한다)
+  if (a[0] === "mark" && ACCOUNT !== "bredy_breeder") a[3] = `[${ACCOUNT}] ${a[3] || ""}`.trim();
+  return execFileSync("node", [OUT, ...a], { encoding: "utf8", env: { ...process.env, OUTREACH_DAILY_LIMIT: "100000" } });
+};
 
 function kstHour() {
   return Number(new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Seoul", hour: "numeric", hour12: false }).format(new Date())) % 24;
@@ -120,10 +126,10 @@ async function openBrowser({ keepTab = false } = {}) {
   return { ctx, page };
 }
 
-// 로그인 화면에 저장된 bredy_breeder 계정의 '계속' 버튼이 있으면 눌러서 다시 들어간다(10-12 사용자: "계속 누르면 되는데 니가 해").
+// 로그인 화면에 저장된 계정(ACCOUNT)의 '계속' 버튼이 있으면 눌러서 다시 들어간다(10-12 사용자: "계속 누르면 되는데 니가 해").
 // 비밀번호 입력·본인 확인은 하지 않는다 — 그 화면이면 false 를 돌려 사용자에게 넘긴다.
 async function continueSavedLogin(page) {
-  if ((await page.getByText("bredy_breeder").count()) === 0) return false;
+  if ((await page.getByText(ACCOUNT).count()) === 0) return false;
   const btn = page.getByRole("button", { name: /^(계속|Continue)/ }).first();
   if ((await btn.count()) === 0) return false;
   await btn.click();
@@ -139,7 +145,7 @@ async function loggedIn(page) {
     await sleep(3000);
   }
   if (/\/accounts\/login|\/challenge|\/checkpoint/.test(page.url())) return false;
-  return (await page.getByText("bredy_breeder").count()) > 0;
+  return (await page.getByText(ACCOUNT).count()) > 0;
 }
 
 async function limitHit(page) {
@@ -377,16 +383,16 @@ async function cmdLogin() {
   if (HEADLESS) throw new Error("login 은 창을 띄워야 한다(--headless 빼기)");
   const { ctx, page } = await openBrowser();
   try {
-    if (await loggedIn(page)) return log("이미 bredy_breeder 로 로그인돼 있다.");
+    if (await loggedIn(page)) return log(`이미 ${ACCOUNT} 로 로그인돼 있다.`);
     await page.goto("https://www.instagram.com/accounts/login/", { waitUntil: "domcontentloaded" });
-    log("크롬 창에서 bredy_breeder 로 로그인해 주세요(최대 15분 기다림). 로그인 정보 저장 질문엔 '저장'을 누르면 다음부터 편하다.");
+    log(`크롬 창에서 ${ACCOUNT} 로 로그인해 주세요(최대 15분 기다림). 로그인 정보 저장 질문엔 '저장'을 누르면 다음부터 편하다.`);
     for (let i = 0; i < 300; i++) {
       await sleep(3000);
       const cookies = await ctx.cookies("https://www.instagram.com");
       if (cookies.some((c) => c.name === "sessionid" && c.value)) {
         await sleep(4000);
         const ok = await loggedIn(page);
-        return log(ok ? "로그인 확인 — bredy_breeder" : "로그인은 됐지만 bredy_breeder 화면이 아니다. 계정을 확인해 주세요.");
+        return log(ok ? `로그인 확인 — ${ACCOUNT}` : `로그인은 됐지만 ${ACCOUNT} 화면이 아니다. 계정을 확인해 주세요.`);
       }
     }
     log("15분 안에 로그인이 확인되지 않았다.");
