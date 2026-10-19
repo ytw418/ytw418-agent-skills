@@ -94,8 +94,8 @@ node $CREW profile .crew/profile-<날짜>.json             # 사용자 확인 �
 ## 분양글·경매글 올리기 (사용자가 요청할 때만, 2026-10-12 예외)
 
 ```bash
-node scripts/listings.mjs .crew/listings-<날짜>.json --dry-run   # 크루·사진·길이·출처 줄 검사
-node scripts/listings.mjs .crew/listings-<날짜>.json             # 사용자 확인 뒤
+node "$(dirname $CREW)/listings.mjs" .crew/listings-<날짜>.json --dry-run   # 크루·사진·길이·출처 줄 검사
+node "$(dirname $CREW)/listings.mjs" .crew/listings-<날짜>.json             # 사용자 확인 뒤
 ```
 
 - 계획 형식은 `.crew/listings-2026-10-12.json` 참고: `products[]`(crew·photo·name·category·productType·dealType·price·description), `auctions[]`(crew·photo·title·category·startPrice·minBidIncrement·hours 1~72·description). 종이 맞는 크루가 올린다.
