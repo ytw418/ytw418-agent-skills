@@ -25,7 +25,7 @@ import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const DIR = process.env.OUTREACH_DIR || path.join(os.homedir(), "Documents", "bredy-outreach");
-// 두 번째 계정(10-20 사용자: 개발자 본인 계정 lcaros_rn 도 마케팅에)은 IG_ACCOUNT 로 고른다. 계정마다 크롬을 따로 써서(2호 9223)
+// 두 번째 계정(10-20 사용자: 본인 계정 yy_jun_0 도 마케팅에)은 IG_ACCOUNT 로 고른다. 자동화 크롬 하나에서 '계정 전환'으로 바꾸고 끝나면 되돌린다.
 // 다른 계정으로 잘못 보내는 일이 없게 한다. 후보·보낸 수(targets.csv)는 두 계정이 같이 써서 한 사람에게 두 번 가지 않고 하루 한도도 합쳐 센다.
 const ACCOUNT = process.env.IG_ACCOUNT || "bredy_breeder";
 const PROFILE = path.join(DIR, ACCOUNT === "bredy_breeder" ? "chrome-profile" : `chrome-profile-${ACCOUNT}`);
@@ -109,18 +109,59 @@ async function slotsLeft() {
 // 창이 켜졌다 꺼지지 않고(10-12 불편 해소), 인스타 게시 스크립트와 같은 'instagram' 사이트 잠금을 써서 겹치지 않는다.
 // ctx.close() = 내 탭 닫기 + 잠금 풀기 + 연결만 끊기(크롬은 그대로).
 const BCHROME = "/Users/yoonseongjun/Desktop/pro/bredy-marketing/scripts/bchrome.mjs";
+// 계정별 인스타 사용자 번호(공개 값). 활성 계정은 쿠키 ds_user_id 로 판별한다(화면 글자는 계정마다 배치가 달라 믿지 않는다).
+const IG_IDS = { bredy_breeder: "67629482183", yy_jun_0: "4581041541" };
+const DEFAULT_ACCOUNT = "bredy_breeder";
+
+async function activeId(context) {
+  return (await context.cookies("https://www.instagram.com")).find((c) => c.name === "ds_user_id")?.value;
+}
+
+// 자동화 크롬 하나에 저장된 계정을 '계정 전환' 메뉴에서 고른다(비밀번호 입력 없음, 10-20 사용자: "셀렉터에서 선택만 하면 된다").
+// 판별·전환은 따로 연 임시 탭에서 하고 닫는다(작업 탭 화면 크기를 건드리지 않게).
+async function ensureAccount(context, account) {
+  const want = IG_IDS[account];
+  if (!want) throw new Error(`IG_IDS 에 ${account} 번호가 없다 — 먼저 등록`);
+  if ((await activeId(context)) === want) return;
+  const p = await context.newPage();
+  try {
+    await p.setViewportSize({ width: 1440, height: 900 });
+    await p.goto("https://www.instagram.com/", { waitUntil: "domcontentloaded" });
+    await sleep(5000);
+    await dismissPopups(p);
+    await p.locator('svg[aria-label="설정"]').first().click({ force: true });
+    await sleep(2500);
+    await p.getByText(/^(계정 전환|Switch accounts)$/).first().click({ timeout: 10000 });
+    await sleep(3000);
+    await p.getByRole("dialog").last().getByText(account, { exact: true }).first().click({ timeout: 10000 });
+    await sleep(9000);
+  } finally {
+    await p.close().catch(() => {});
+  }
+  if ((await activeId(context)) !== want) throw new Error(`계정 전환 실패: ${account}`);
+  log(`계정 전환 — ${account}`);
+}
+
 async function openBrowser({ keepTab = false } = {}) {
   const { lockSite } = await import(BCHROME);
   const release = await lockSite("instagram");
-  // 두 번째 계정은 자동화 크롬 2호(~/.bredy-chrome-2, 9223) — 프로필 하나엔 사이트당 계정 하나(브라우저 정책)
-  const second = ACCOUNT !== "bredy_breeder";
-  execFileSync(path.join(os.homedir(), second ? ".local/bin/bredy-chrome-2" : ".local/bin/bredy-chrome"));
-  const browser = await chromium.connectOverCDP(`http://127.0.0.1:${second ? 9223 : 9222}`);
-  const page = await browser.contexts()[0].newPage();
+  execFileSync(path.join(os.homedir(), ".local/bin/bredy-chrome"));
+  const browser = await chromium.connectOverCDP("http://127.0.0.1:9222");
+  const context = browser.contexts()[0];
+  try {
+    await ensureAccount(context, ACCOUNT);
+  } catch (e) {
+    release();
+    await browser.close().catch(() => {});
+    throw e;
+  }
+  const page = await context.newPage();
   const ctx = {
-    cookies: (u) => browser.contexts()[0].cookies(u),
+    cookies: (u) => context.cookies(u),
     close: async () => {
       if (!keepTab) await page.close().catch(() => {});
+      // 두 번째 계정으로 일했으면 기본 계정으로 되돌려 둔다(다른 일정·세션이 bredy_breeder 로 알고 붙는다)
+      if (ACCOUNT !== DEFAULT_ACCOUNT) await ensureAccount(context, DEFAULT_ACCOUNT).catch((e) => log("되돌리기 실패: " + e.message));
       release();
       await browser.close().catch(() => {});
     },
@@ -147,6 +188,7 @@ async function loggedIn(page) {
     await sleep(3000);
   }
   if (/\/accounts\/login|\/challenge|\/checkpoint/.test(page.url())) return false;
+  if (IG_IDS[ACCOUNT]) return (await activeId(page.context())) === IG_IDS[ACCOUNT];
   return (await page.getByText(ACCOUNT).count()) > 0;
 }
 

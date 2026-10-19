@@ -92,10 +92,10 @@ https://bredy.app
 👉 https://bredy.app
 ```
 
-## 개발자 계정 1차 (2026-10-20 — lcaros_rn, 만든 사람 목소리)
+## 개발자 계정 1차 (2026-10-20 — 본인 계정 yy_jun_0, 만든 사람 목소리)
 
-사용자 본인 계정(lcaros_rn, "브리더 개발자")으로 보낼 때. 브리디를 만든 사람이라고 밝히고, 일반 이용자인 척 추천하지 않는다.
-`IG_ACCOUNT=lcaros_rn IG_TEMPLATE='## 개발자 계정 1차' node ig.mjs send N` — 후보·하루 한도는 bredy_breeder 와 같이 센다.
+사용자 본인 계정(yy_jun_0 · lcaros_rn)으로 보낼 때. 브리디를 만든 사람이라고 밝히고, 일반 이용자인 척 추천하지 않는다.
+`IG_ACCOUNT=yy_jun_0 IG_TEMPLATE='## 개발자 계정 1차' node ig.mjs send N` — 후보·하루 한도는 bredy_breeder 와 같이 센다.
 
 ```
 안녕하세요 {닉네임}님! 🦎
