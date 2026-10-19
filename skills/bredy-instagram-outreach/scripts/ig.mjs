@@ -25,7 +25,7 @@ import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const DIR = process.env.OUTREACH_DIR || path.join(os.homedir(), "Documents", "bredy-outreach");
-// 두 번째 계정(10-20 사용자: 개발자 본인 계정 lcaros_rn 도 마케팅에)은 IG_ACCOUNT 로 고른다. 계정마다 크롬 프로필을 따로 써서
+// 두 번째 계정(10-20 사용자: 개발자 본인 계정 lcaros_rn 도 마케팅에)은 IG_ACCOUNT 로 고른다. 계정마다 크롬을 따로 써서(2호 9223)
 // 다른 계정으로 잘못 보내는 일이 없게 한다. 후보·보낸 수(targets.csv)는 두 계정이 같이 써서 한 사람에게 두 번 가지 않고 하루 한도도 합쳐 센다.
 const ACCOUNT = process.env.IG_ACCOUNT || "bredy_breeder";
 const PROFILE = path.join(DIR, ACCOUNT === "bredy_breeder" ? "chrome-profile" : `chrome-profile-${ACCOUNT}`);
@@ -112,8 +112,10 @@ const BCHROME = "/Users/yoonseongjun/Desktop/pro/bredy-marketing/scripts/bchrome
 async function openBrowser({ keepTab = false } = {}) {
   const { lockSite } = await import(BCHROME);
   const release = await lockSite("instagram");
-  execFileSync(path.join(os.homedir(), ".local/bin/bredy-chrome"));
-  const browser = await chromium.connectOverCDP("http://127.0.0.1:9222");
+  // 두 번째 계정은 자동화 크롬 2호(~/.bredy-chrome-2, 9223) — 프로필 하나엔 사이트당 계정 하나(브라우저 정책)
+  const second = ACCOUNT !== "bredy_breeder";
+  execFileSync(path.join(os.homedir(), second ? ".local/bin/bredy-chrome-2" : ".local/bin/bredy-chrome"));
+  const browser = await chromium.connectOverCDP(`http://127.0.0.1:${second ? 9223 : 9222}`);
   const page = await browser.contexts()[0].newPage();
   const ctx = {
     cookies: (u) => browser.contexts()[0].cookies(u),

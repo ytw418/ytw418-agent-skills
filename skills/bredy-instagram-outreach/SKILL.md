@@ -50,7 +50,7 @@ node $IG check | inbox | read <handle> | reply <handle> <글> | send [n] [--dry]
 
 ## 두 번째 계정 — 개발자 본인 lcaros_rn (2026-10-20)
 
-- 사용자 본인 개발자 계정(같은 계정 센터에 묶임)도 쓴다. `IG_ACCOUNT=lcaros_rn` 이면 크롬 프로필 `chrome-profile-lcaros_rn` 을 따로 띄운다(로그인: `IG_ACCOUNT=lcaros_rn node scripts/ig.mjs login` → 사용자가 직접 로그인).
+- 사용자 본인 개발자 계정(같은 계정 센터에 묶임)도 쓴다. `IG_ACCOUNT=lcaros_rn` 이면 자동화 크롬 2호(`~/.local/bin/bredy-chrome-2`, 프로필 `~/.bredy-chrome-2`, 9223)에 붙는다(로그인: `IG_ACCOUNT=lcaros_rn node scripts/ig.mjs login` → 사용자가 직접 로그인).
 - 문구는 `## 개발자 계정 1차`(만든 사람이라고 밝힌다, 이용자인 척 추천 금지). 보낸 기록 메모 앞에 `[lcaros_rn]` 이 붙는다 — 그 사람 답장은 lcaros_rn 메시지함에서 읽는다(`IG_ACCOUNT=lcaros_rn … read/inbox`).
 - 후보·하루 한도(targets.csv)는 두 계정이 같이 쓴다. 한 사람에게 두 계정이 다 보내지 않고, 계정을 늘려 하루 보내는 수를 늘리지 않는다(Meta 스팸 정책·계정 센터로 묶인 계정 동시 제한 위험).
 
