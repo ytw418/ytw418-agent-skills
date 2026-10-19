@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// 브리디 인스타 DM — Paseo 브라우저와 따로 쓰는 '영업 전용 크롬 창'으로 보낸다.
+// 브리디 인스타 DM — 브리디 자동화 크롬(CDP 9222)의 자기 탭에서 보낸다(2026-10-18, 예전엔 자기 프로필 창).
 // Paseo 브라우저는 사용자와 같이 써서 탭이 화면에 없으면 Enter 가 안 먹고, 사용자 타이핑이 섞인다(10-11).
 // 이 스크립트는 자기 크롬 프로필(OUTREACH_DIR/chrome-profile)로 띄운 창에서 실제 키 입력으로 보낸다.
 //
@@ -99,16 +99,24 @@ async function slotsLeft() {
   return 100 - Number(m[1]);
 }
 
-async function openBrowser() {
-  fs.mkdirSync(PROFILE, { recursive: true });
-  const ctx = await chromium.launchPersistentContext(PROFILE, {
-    channel: "chrome",
-    headless: HEADLESS,
-    viewport: { width: 1280, height: 900 },
-    locale: "ko-KR",
-    timezoneId: "Asia/Seoul",
-  });
-  const page = ctx.pages()[0] || (await ctx.newPage());
+// 2026-10-18 정책: 브리디 자동화 크롬(~/.bredy-chrome, CDP 9222)에 붙어 '자기 탭'에서만 한다.
+// 창이 켜졌다 꺼지지 않고(10-12 불편 해소), 인스타 게시 스크립트와 같은 'instagram' 사이트 잠금을 써서 겹치지 않는다.
+// ctx.close() = 내 탭 닫기 + 잠금 풀기 + 연결만 끊기(크롬은 그대로).
+const BCHROME = "/Users/yoonseongjun/Desktop/pro/bredy-marketing/scripts/bchrome.mjs";
+async function openBrowser({ keepTab = false } = {}) {
+  const { lockSite } = await import(BCHROME);
+  const release = await lockSite("instagram");
+  execFileSync(path.join(os.homedir(), ".local/bin/bredy-chrome"));
+  const browser = await chromium.connectOverCDP("http://127.0.0.1:9222");
+  const page = await browser.contexts()[0].newPage();
+  const ctx = {
+    cookies: (u) => browser.contexts()[0].cookies(u),
+    close: async () => {
+      if (!keepTab) await page.close().catch(() => {});
+      release();
+      await browser.close().catch(() => {});
+    },
+  };
   return { ctx, page };
 }
 
