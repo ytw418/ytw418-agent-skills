@@ -7,7 +7,7 @@
 //
 //   node ig.mjs login                크롬 창을 띄운다 → 사용자가 bredy_breeder 로 직접 로그인(비밀번호는 스크립트가 보지 않음)
 //   node ig.mjs check                로그인 상태 확인
-//   node ig.mjs send [n]             후보(targets.csv '후보')에게 첫 메시지 — 실제 보냄 n명(기본 7)이 될 때까지
+//   node ig.mjs send [n]             후보(targets.csv '후보')에게 첫 메시지 — 실제 보냄 n명(기본 10)이 될 때까지
 //   node ig.mjs inbox                읽지 않은 대화를 열어 handle·최근 메시지를 JSON 으로
 //   node ig.mjs read <handle>        그 사람 대화 최근 메시지 JSON
 //   node ig.mjs reply <handle> <글>  답장(여러 줄은 글 안의 \n)

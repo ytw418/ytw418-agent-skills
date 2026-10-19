@@ -15,7 +15,7 @@ import path from "node:path";
 
 const DIR = process.env.OUTREACH_DIR || path.join(os.homedir(), "Documents", "bredy-outreach");
 const FILE = path.join(DIR, "targets.csv");
-const DAILY_LIMIT = Number(process.env.OUTREACH_DAILY_LIMIT || 20);
+const DAILY_LIMIT = Number(process.env.OUTREACH_DAILY_LIMIT || 30); // 10-19 사용자: 아침·점심·저녁 10명씩
 const COLUMNS = ["handle", "닉네임", "분야", "유형", "출처", "보낸날", "상태", "메모"];
 const STATUSES = ["후보", "보냄", "답장", "관심", "가입", "거절", "무응답", "확인필요", "제외", "보류"];
 const SENT_STATUSES = new Set(["보냄", "답장", "관심", "가입", "거절", "무응답"]);
