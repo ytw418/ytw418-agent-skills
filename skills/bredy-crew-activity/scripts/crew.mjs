@@ -15,9 +15,13 @@
  * 명령
  *   setup   [--count 50] [--dry-run]           크루 계정 생성 + 이름·소개·동네 설정
  *   list                                       크루 목록
- *   snapshot [--pages 5]                       최근 게시글·댓글을 .crew/snapshot.json 으로
+ *   roles                                      분류별 역할표(정보·댓글·토론·질문·예비)
+ *   snapshot [--pages 5]                    최근 게시글·댓글을 .crew/snapshot.json 으로
+ *   lint    <plan.json> [--strict]             글·댓글 AI 냄새 검사(apply 도 같은 검사로 막는다)
  *   apply   <plan.json> [--dry-run] [--min-delay 4] [--max-delay 12]
+ *   edit    <edit.json> [--dry-run]            이미 올린 크루 글·댓글을 고친다(같은 AI 냄새 검사)
  *   cleanup <log.jsonl> [--dry-run]            그 실행에서 만든 글·댓글만 지운다
+ *   profile <profile.json> [--dry-run]         크루 닉네임·프로필 사진·동네 노출을 바꾼다
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -52,8 +56,38 @@ const BLOODLINE_NAME_PATTERN = /^[A-Za-z0-9가-힣 ]{2,40}$/;
 /** 공지는 운영 공지 전용, 후기는 거래 후기로 읽히므로 크루가 쓰지 않는다. */
 const CREW_POST_CATEGORIES = ["동네", "자유", "질문", "정보", "자랑", "사진", "변이"];
 /** 한 번 실행에 너무 많이 쏟아지지 않게 막는 상한. */
-const RUN_LIMITS = { post: 15, comment: 60, like: 120, follow: 60, bloodline: 5 };
+const RUN_LIMITS = { post: 15, debate: 7, comment: 60, like: 120, follow: 60, bloodline: 5 };
 const CREATE_BATCH_MAX = 20;
+
+/** 생물 분류(breeder_web libs/categoryTaxonomy.ts 사본). 크루 역할은 큰 분류마다 정한다. */
+const GROUPS = {
+  곤충: ["장수풍뎅이", "사슴벌레", "개미", "나비", "사마귀", "밀웜/귀뚜라미"],
+  절지류: ["타란튤라", "지네", "전갈", "등각류", "기타 절지류"],
+  파충류: ["레오파드 게코", "크레스티드 게코", "볼파이썬", "콘스네이크", "이구아나", "카멜레온", "육지거북", "수생거북"],
+  어류: ["구피", "베타", "코리도라스", "안시스트루스", "디스커스", "금붕어"],
+  포유류: ["고슴도치", "햄스터", "기니피그", "토끼", "페럿", "친칠라"],
+  양서류: ["팩맨", "엑솔로틀", "화이트트리프록", "다트프록", "뉴트"],
+  식물: ["관엽식물", "다육식물", "식충식물", "테라리움 식물", "수초"],
+};
+/** 종 이름(또는 큰 분류 이름) → 큰 분류. 모르면 null. */
+const groupOf = (species) =>
+  GROUPS[species] ? species : (Object.keys(GROUPS).find((group) => GROUPS[group].includes(species)) ?? null);
+/**
+ * 크루 역할(2026-10-19 사용자 결정): 분류마다 정보 1 · 댓글 3 · 토론 1 · 질문(질문·자유) 1.
+ * 남는 크루는 예비(좋아요·팔로우만). 역할은 personas.json 의 group·role 에 있다.
+ */
+const ROLES = ["정보", "댓글", "토론", "질문", "예비"];
+const ROLE_POST_CATEGORIES = { 정보: ["정보", "변이"], 질문: ["질문", "자유", "동네", "자랑", "사진"] };
+/** 찬반 토론 규칙(breeder_web libs/shared/debateFormat.ts 와 같은 값). */
+const DEBATE_CATEGORY = "토론";
+const DEBATE_QUESTION_MIN = 5;
+const DEBATE_QUESTION_MAX = 40;
+const DEBATE_OPTION_MAX = 12;
+const DEBATE_DESCRIPTION_MAX = 1000;
+const DEBATE_DURATIONS_HOURS = [72, 168, 24];
+const DEBATE_DAILY_LIMIT = 3;
+/** 크루는 거래하지 않으므로 가게·판매자처럼 보이는 닉네임을 쓰지 않는다. */
+const SELLER_LIKE_NICK = /샵|shop|스토어|store|분양|판매|매장|마켓/i;
 
 /* ------------------------------------------------------------------ */
 /* 공통                                                               */
@@ -235,10 +269,10 @@ async function setup(flags) {
     for (let attempt = 0; attempt < 5 && !saved; attempt += 1) {
       const name = crewName(persona.nick, nameSuffix, attempt);
       try {
-        // regionVisible=false: 동네 브리더 목록·홈 동네 섹션에 크루를 넣지 않는다.
+        // regionVisible=true: 동네 브리더 목록·홈 동네 섹션에 크루도 보인다(2026-10-10 사용자 결정).
         await api("POST", "/api/users/me", {
           token: userToken,
-          body: { name, bio, regionSido, regionSigungu, regionVisible: false, categoryOnboarded: true },
+          body: { name, bio, regionSido, regionSigungu, regionVisible: true, categoryOnboarded: true },
         });
         saved = name;
       } catch (error) {
@@ -260,8 +294,24 @@ function list() {
   if (!roster.members.length) return console.log("크루가 없습니다. setup 을 먼저 실행하세요.");
   for (const m of roster.members) {
     const p = byKey.get(m.key);
-    console.log(`${m.key}\t#${m.userId}\t${m.name}\t${p?.species.join(", ") ?? ""}\t${p?.tone ?? ""}`);
+    console.log(`${m.key}\t#${m.userId}\t${m.name}\t${p?.group ?? ""}·${p?.role ?? ""}\t${p?.species.join(", ") ?? ""}\t${p?.tone ?? ""}`);
   }
+}
+
+function roles() {
+  const { personas } = loadPersonas();
+  const names = new Map(loadRoster().members.map((m) => [m.key, m.name]));
+  const label = (p) => `${p.key} ${names.get(p.key) ?? p.nick}`;
+  for (const group of Object.keys(GROUPS)) {
+    const inGroup = personas.filter((p) => p.group === group);
+    const line = ROLES.map((role) => {
+      const who = inGroup.filter((p) => p.role === role);
+      return who.length ? `${role} ${who.map(label).join(", ")}` : null;
+    }).filter(Boolean);
+    console.log(`${group}\t${line.join(" | ")}`);
+  }
+  const loose = personas.filter((p) => !GROUPS[p.group] || !ROLES.includes(p.role));
+  if (loose.length) console.log(`역할 없음: ${loose.map(label).join(", ")}`);
 }
 
 /* ------------------------------------------------------------------ */
@@ -288,6 +338,7 @@ async function snapshot(flags) {
         description: clip(d.description, 600),
         imageCount: (d.images ?? []).length,
         likes: d._count?.Likes ?? 0,
+        ...(d.debate ? { debate: { optionA: d.debate.optionA, optionB: d.debate.optionB, endsAt: d.debate.endsAt, state: d.debate.state } } : {}),
         author: { id: d.user.id, name: d.user.name, isCrew: crewIds.has(d.user.id) },
         comments: d.comments
           .filter((c) => !c.deletedAt)
@@ -319,8 +370,13 @@ async function snapshot(flags) {
 function validatePlan(plan, roster) {
   const members = new Map(roster.members.map((m) => [m.key, m]));
   const crewIds = new Set(roster.members.map((m) => m.userId));
-  const knownTitles = new Set(readJsonl(HISTORY_FILE).filter((h) => h.type === "post").map((h) => titleKey(h.title)));
-  const snapshotTitles = new Set((readJson(SNAPSHOT_FILE, { posts: [] }).posts ?? []).map((p) => titleKey(p.title)));
+  const personas = new Map(loadPersonas().personas.map((p) => [p.key, p]));
+  const postHistory = readJsonl(HISTORY_FILE).filter((h) => h.type === "post");
+  const postAuthor = new Map(postHistory.map((h) => [h.id, h.crew]));
+  const snapshotPosts = new Map((readJson(SNAPSHOT_FILE, { posts: [] }).posts ?? []).map((p) => [p.id, p]));
+  const knownTitles = new Set(postHistory.map((h) => titleKey(h.title)));
+  const snapshotTitles = new Set([...snapshotPosts.values()].map((p) => titleKey(p.title)));
+  const debatesByCrew = {};
   const counts = {};
   const errors = [];
 
@@ -328,6 +384,19 @@ function validatePlan(plan, roster) {
     const at = `#${index} ${action.type}`;
     counts[action.type] = (counts[action.type] ?? 0) + 1;
     if (!members.has(action.crew)) errors.push(`${at}: 모르는 크루 ${action.crew}`);
+    const persona = personas.get(action.crew);
+    const role = persona?.role ?? "예비";
+    const checkTitle = () => {
+      const key = titleKey(action.title);
+      if (knownTitles.has(key) || snapshotTitles.has(key)) errors.push(`${at}: 이미 있는 제목 "${action.title}"`);
+      knownTitles.add(key);
+    };
+    // 글·토론은 자기 분류 안에서만(종 이름이나 큰 분류 이름).
+    const checkGroup = () => {
+      if (groupOf(action.species) !== persona?.group) {
+        errors.push(`${at}: species "${action.species ?? ""}" — ${action.crew} 는 ${persona?.group ?? "분류 없는"} 크루`);
+      }
+    };
 
     switch (action.type) {
       case "post": {
@@ -335,15 +404,43 @@ function validatePlan(plan, roster) {
         if (!String(action.title ?? "").trim()) errors.push(`${at}: 제목이 없습니다`);
         if (len < POST_BODY_MIN || len > POST_BODY_MAX) errors.push(`${at}: 본문 ${len}자(${POST_BODY_MIN}~${POST_BODY_MAX})`);
         if (!CREW_POST_CATEGORIES.includes(action.category)) errors.push(`${at}: 카테고리 ${action.category} 불가`);
-        const key = titleKey(action.title);
-        if (knownTitles.has(key) || snapshotTitles.has(key)) errors.push(`${at}: 이미 있는 제목 "${action.title}"`);
-        knownTitles.add(key);
+        const allowed = ROLE_POST_CATEGORIES[role] ?? [];
+        if (!allowed.includes(action.category)) {
+          errors.push(`${at}: ${action.crew} 는 ${role} 크루 — ${allowed.length ? `${allowed.join("·")} 글만` : "글을 쓰지 않는다"}`);
+        }
+        checkGroup();
+        checkTitle();
+        break;
+      }
+      case "debate": {
+        const title = String(action.title ?? "").trim();
+        const a = String(action.optionA ?? "").trim();
+        const b = String(action.optionB ?? "").trim();
+        if (role !== "토론") errors.push(`${at}: ${action.crew} 는 ${role} 크루 — 토론은 토론 크루만`);
+        if (title.length < DEBATE_QUESTION_MIN || title.length > DEBATE_QUESTION_MAX) {
+          errors.push(`${at}: 질문 ${title.length}자(${DEBATE_QUESTION_MIN}~${DEBATE_QUESTION_MAX})`);
+        }
+        if (!a || !b || a.length > DEBATE_OPTION_MAX || b.length > DEBATE_OPTION_MAX) errors.push(`${at}: 선택지는 1~${DEBATE_OPTION_MAX}자`);
+        else if (a.toLowerCase() === b.toLowerCase()) errors.push(`${at}: 두 선택지가 같습니다`);
+        if (!DEBATE_DURATIONS_HOURS.includes(action.durationHours ?? 72)) errors.push(`${at}: 기간은 ${DEBATE_DURATIONS_HOURS.join("·")}시간 중 하나`);
+        if (String(action.description ?? "").trim().length > DEBATE_DESCRIPTION_MAX) errors.push(`${at}: 설명 ${DEBATE_DESCRIPTION_MAX}자 넘음`);
+        debatesByCrew[action.crew] = (debatesByCrew[action.crew] ?? 0) + 1;
+        checkGroup();
+        checkTitle();
         break;
       }
       case "comment": {
         const len = String(action.comment ?? "").trim().length;
         if (!Number.isInteger(action.postId)) errors.push(`${at}: postId 가 없습니다`);
         if (!len || len > COMMENT_MAX) errors.push(`${at}: 댓글 ${len}자(1~${COMMENT_MAX})`);
+        // 댓글은 그 분류 댓글 크루가 단다. 글쓴이 본인이 자기 글 댓글에 답하는 것은 역할과 상관없이 된다.
+        const target = snapshotPosts.get(action.postId);
+        const own = postAuthor.get(action.postId) === action.crew || (target && target.author.id === members.get(action.crew)?.userId);
+        const targetGroup = groupOf(target?.species);
+        if (!own && role !== "댓글") errors.push(`${at}: ${action.crew} 는 ${role} 크루 — 댓글은 댓글 크루(또는 글쓴이 본인)만`);
+        else if (!own && targetGroup && targetGroup !== persona?.group) {
+          errors.push(`${at}: 글 #${action.postId} 는 ${targetGroup} — ${action.crew} 는 ${persona?.group} 댓글 크루`);
+        }
         break;
       }
       case "like":
@@ -365,6 +462,9 @@ function validatePlan(plan, roster) {
 
   for (const [type, limit] of Object.entries(RUN_LIMITS)) {
     if ((counts[type] ?? 0) > limit) errors.push(`${type} ${counts[type]}개 — 한 번에 ${limit}개까지`);
+  }
+  for (const [crew, n] of Object.entries(debatesByCrew)) {
+    if (n > DEBATE_DAILY_LIMIT) errors.push(`${crew} 토론 ${n}개 — 서버가 하루 ${DEBATE_DAILY_LIMIT}개까지 받는다`);
   }
   return { errors, counts, members, crewIds };
 }
@@ -393,6 +493,21 @@ async function runAction(action, member) {
         },
       });
       appendJsonl(HISTORY_FILE, { type: "post", crew: member.key, id: post.id, title: post.title, at: new Date().toISOString() });
+      return { id: post.id };
+    }
+    case "debate": {
+      // 찬반 토론 글(서버 pages/api/posts/index.ts 의 category === "토론" 분기). 사진 없음, 설명은 선택.
+      const { post } = await api("POST", "/api/posts", {
+        token,
+        body: {
+          title: action.title.trim(),
+          description: String(action.description ?? "").trim(),
+          category: DEBATE_CATEGORY,
+          species: action.species,
+          debate: { optionA: action.optionA.trim(), optionB: action.optionB.trim(), durationHours: action.durationHours ?? 72 },
+        },
+      });
+      appendJsonl(HISTORY_FILE, { type: "post", category: DEBATE_CATEGORY, crew: member.key, id: post.id, title: post.title, at: new Date().toISOString() });
       return { id: post.id };
     }
     case "comment": {
@@ -440,6 +555,129 @@ async function runAction(action, member) {
   }
 }
 
+/* ------------------------------------------------------------------ */
+/* lint — AI 냄새 검사 (references/natural-voice.md)                    */
+/* ------------------------------------------------------------------ */
+
+/** 블로그·보고서에서 온 표현. 커뮤니티 사람은 거의 쓰지 않는다. 있으면 막는다. */
+const AI_PHRASES = [
+  /정리해\s?(봅니다|봤|드려|볼게|보았)/,
+  /공유(합니다|드립니다|드려요|해\s?드려요)/,
+  /도움이\s?(되셨으면|되길|되었으면|되면\s?좋겠)/,
+  /참고(하세요|해\s?주세요|하시면|하시길)/,
+  /결론적으로|요약하(면|자면)|정리하자면|한마디로/,
+  /중요한\s?(건|것은|점은)|핵심은|주의할\s?(점|것)은|포인트는/,
+  /다음과\s?같|아래와\s?같/,
+  // 열거용 '첫째,'·'둘째로:' 만. '둘째 주', '첫째는 이제…'(아이·개체 순서)는 사람 말이다.
+  /(첫째|둘째|셋째)(로)?\s*[,:]/,
+  /하는\s?것이\s?(좋습니다|중요합니다|바람직)/,
+  /살펴보(겠|면|았)|알아보(겠|자|았)/,
+];
+const MARKDOWN_HEAVY = /(^|\n)\s*#{1,6}\s|\*\*[^*\n]+\*\*/;
+const LIST_LINE = /(^|\n)\s*(\d+[.)]|[-*•])\s/;
+const NUMBERED_LINE = /(^|\n)\s*\d+[.)]\s/;
+const DASH = /[—–]/;
+/** 사람 글에 흔한 감탄·말줄임 표시. 하나도 없으면 다듬어진 글로 보인다. */
+const CASUAL = /[ㅋㅎㅠㅜ]|\^\^|~|!!|\?\?|\.\.|♡|ㄹㅇ/;
+const LAUGH = /[ㅋㅎㅠㅜ]|ㄹㅇ/;
+const CUTE_END = /용(\s|[.!?~]|$)/m;
+const RANGE = /\d+\s?~\s?\d+/g;
+const PAREN = /\([^)]{4,}\)/;
+const EMOJI = /\p{Extended_Pictographic}/u;
+const INFO_TITLE = /(하는\s?법|방법|이유|정리|루틴|가이드|기준|총정리|꿀팁)\s*[.!?]*$/;
+const COMMENT_LONG = 180;
+
+/**
+ * 계획의 글·댓글을 검사한다. hard 는 apply 를 막고, soft 는 경고만 한다(--strict 면 lint 가 실패).
+ * voice 는 personas.json 의 크루별 말투 묶음(ajeossi·ajumma·twenties·cute).
+ */
+function lintPlan(plan) {
+  const { personas } = loadPersonas();
+  const voiceOf = new Map(personas.map((p) => [p.key, p.voice ?? "default"]));
+  const hard = [];
+  const soft = [];
+  const comments = [];
+
+  (plan.actions ?? []).forEach((action, index) => {
+    if (!["post", "debate", "comment"].includes(action.type)) return;
+    const at = `#${index} ${action.type} ${action.crew}`;
+    const text = String(action.type === "comment" ? action.comment ?? "" : action.description ?? "");
+    const title = String(action.title ?? "");
+    const voice = voiceOf.get(action.crew) ?? "default";
+    const whole = `${title}\n${text}`;
+
+    for (const re of AI_PHRASES) {
+      const m = whole.match(re);
+      if (m) hard.push(`${at}: AI 말투 "${m[0]}"`);
+    }
+    if (DASH.test(whole)) hard.push(`${at}: 긴 줄표(—) — 사람은 거의 안 쓴다`);
+    if (MARKDOWN_HEAVY.test(text)) hard.push(`${at}: ## 제목·**굵게** 서식 — 블로그 글처럼 보인다`);
+    if (action.type === "comment" && LIST_LINE.test(text)) hard.push(`${at}: 댓글에 목록 서식`);
+    if (action.type === "post" && NUMBERED_LINE.test(text)) soft.push(`${at}: 번호 목록 — 경험담 문장이나 '-' 몇 줄로`);
+    if (action.type === "post" && INFO_TITLE.test(title.trim())) soft.push(`${at}: 정보글 제목 "${clip(title, 30)}" — 상황·감정이 보이게`);
+
+    const ranges = whole.match(RANGE) ?? [];
+    if (ranges.length >= 2) soft.push(`${at}: 숫자 범위 ${ranges.length}개(${ranges.join(", ")}) — '한 25도쯤', '이틀 정도'처럼`);
+    if (action.type === "comment") {
+      if (text.length > COMMENT_LONG) soft.push(`${at}: 댓글 ${text.length}자 — 한 가지만 짧게`);
+      if (PAREN.test(text)) soft.push(`${at}: 괄호 덧말`);
+      comments.push(text.trim());
+    }
+    // 설명 없는 토론은 질문 한 줄뿐이라 말투 표시를 보지 않는다.
+    const questionOnly = action.type === "debate" && !text.trim();
+    if (questionOnly) return;
+    if (voice === "twenties") {
+      if (!LAUGH.test(whole)) soft.push(`${at}: 20대 말투인데 ㅋ·ㅎ·ㅠ·ㄹㅇ 가 없다`);
+    } else if (voice === "cute") {
+      if (!CASUAL.test(whole) && !EMOJI.test(whole) && !CUTE_END.test(whole)) {
+        soft.push(`${at}: 귀여운 말투인데 ~용·이모지·ㅎㅎ 같은 표시가 없다`);
+      }
+    } else if (voice !== "default" && !CASUAL.test(whole)) {
+      soft.push(`${at}: ${voice} 말투인데 ㅋ·ㅎ·~·^^ 같은 표시가 하나도 없다`);
+    }
+    if (voice === "ajeossi" && EMOJI.test(whole)) soft.push(`${at}: 아저씨 말투에 이모지`);
+  });
+
+  if (comments.length >= 6) {
+    const share = (pred) => comments.filter(pred).length / comments.length;
+    const pct = (v) => `${Math.round(v * 100)}%`;
+    const lengths = comments.map((c) => c.length).sort((a, b) => a - b);
+    const median = lengths[Math.floor(lengths.length / 2)];
+    const short = share((c) => c.length <= 40);
+    if (median > 90) soft.push(`댓글 길이 중앙값 ${median}자 — 절반은 한 줄(40자 이하)로`);
+    if (short < 0.3) soft.push(`40자 이하 댓글이 ${pct(short)} — 30% 이상으로`);
+    const question = share((c) => /\?\s*$/.test(c));
+    if (question > 0.4) soft.push(`물음표로 끝나는 댓글 ${pct(question)} — 매번 되묻지 않는다`);
+    const deora = share((c) => /더라(고|구)요/.test(c));
+    if (deora > 0.35) soft.push(`'~더라고요' 댓글 ${pct(deora)} — 말끝을 섞는다`);
+    const plain = share((c) => !CASUAL.test(c));
+    if (plain > 0.6) soft.push(`감탄·말줄임 표시 없는 댓글 ${pct(plain)} — 너무 단정하다`);
+    const openers = new Map();
+    for (const c of comments) {
+      const key = c.replace(/[^가-힣a-z0-9]/gi, "").slice(0, 2);
+      openers.set(key, (openers.get(key) ?? 0) + 1);
+    }
+    for (const [key, n] of openers) {
+      if (key && n / comments.length > 0.25) soft.push(`'${key}…'로 시작하는 댓글 ${n}개 — 첫마디를 바꾼다`);
+    }
+  }
+  return { hard, soft };
+}
+
+function lint(positional, flags) {
+  const planFile = positional[0];
+  if (!planFile) fail("계획 파일이 필요합니다: lint <plan.json>");
+  const plan = readJson(path.resolve(ROOT, planFile), null);
+  if (!plan) fail(`계획 파일을 읽지 못했습니다: ${planFile}`);
+  const { hard, soft } = lintPlan(plan);
+  hard.forEach((e) => console.error(`  ✖ ${e}`));
+  soft.forEach((e) => console.log(`  △ ${e}`));
+  console.log(`AI 냄새 검사: 막음 ${hard.length} · 경고 ${soft.length}`);
+  if (hard.length || (flags.strict && soft.length)) {
+    fail(hard.length ? "막는 항목을 고쳐야 apply 할 수 있습니다." : "--strict: 경고를 고치세요.");
+  }
+}
+
 async function apply(positional, flags) {
   const planFile = positional[0];
   if (!planFile) fail("계획 파일이 필요합니다: apply <plan.json>");
@@ -447,9 +685,12 @@ async function apply(positional, flags) {
   if (!plan) fail(`계획 파일을 읽지 못했습니다: ${planFile}`);
   const roster = loadRoster();
   const { errors, counts, members } = validatePlan(plan, roster);
+  const smell = lintPlan(plan);
+  errors.push(...smell.hard);
   const dryRun = Boolean(flags["dry-run"]);
 
   console.log(`계획: ${Object.entries(counts).map(([k, v]) => `${k} ${v}`).join(" · ") || "비어 있음"}`);
+  smell.soft.forEach((e) => console.log(`  △ ${e}`));
   if (errors.length) {
     errors.forEach((e) => console.error(`  ✖ ${e}`));
     fail(`계획에 문제가 ${errors.length}개 있습니다. 아무것도 실행하지 않았습니다.`);
@@ -495,6 +736,194 @@ async function apply(positional, flags) {
 /* cleanup                                                            */
 /* ------------------------------------------------------------------ */
 
+/* ------------------------------------------------------------------ */
+/* profile                                                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * 프로필 파일 형식: { "members": [{ "crew": "c01", "nick": "크레곤듀", "avatarPath": ".crew/avatars/c01.jpg", "regionVisible": true }] }
+ * 세 값 모두 넣은 것만 바꾼다. nick 에는 '·크루' 를 빼고 쓴다(스크립트가 붙인다).
+ */
+function validateProfiles(plan, roster, nameSuffix) {
+  const members = new Map(roster.members.map((m) => [m.key, m]));
+  const room = NICKNAME_MAX - nameSuffix.length;
+  const seen = new Set();
+  const nicks = new Set();
+  const errors = [];
+
+  (plan.members ?? []).forEach((entry, index) => {
+    const at = `#${index} ${entry.crew}`;
+    if (!members.has(entry.crew)) errors.push(`${at}: 모르는 크루`);
+    if (seen.has(entry.crew)) errors.push(`${at}: 같은 크루가 두 번 있습니다`);
+    seen.add(entry.crew);
+    if (entry.nick !== undefined) {
+      const nick = String(entry.nick).trim();
+      if (!nick || nick.length > room) errors.push(`${at}: 닉네임 ${nick.length}자(1~${room}자, 뒤에 '${nameSuffix}' 가 붙는다)`);
+      if (nick.includes(nameSuffix.replace(/^·/, ""))) errors.push(`${at}: 닉네임에 '${nameSuffix}' 를 넣지 마세요(스크립트가 붙인다)`);
+      if (SELLER_LIKE_NICK.test(nick)) errors.push(`${at}: 판매자처럼 보이는 닉네임 "${nick}"`);
+      if (nicks.has(nick)) errors.push(`${at}: 닉네임 "${nick}" 이 겹칩니다`);
+      nicks.add(nick);
+    }
+    if (entry.avatarPath !== undefined && !fs.existsSync(path.resolve(ROOT, String(entry.avatarPath)))) {
+      errors.push(`${at}: 사진 파일이 없습니다 ${entry.avatarPath}`);
+    }
+    if (entry.regionVisible !== undefined && typeof entry.regionVisible !== "boolean") {
+      errors.push(`${at}: regionVisible 은 true/false 입니다`);
+    }
+  });
+  return { errors, members };
+}
+
+async function profile(positional, flags) {
+  const file = positional[0];
+  if (!file) fail("프로필 파일이 필요합니다: profile <profile.json>");
+  const plan = readJson(path.resolve(ROOT, file), null);
+  if (!plan) fail(`프로필 파일을 읽지 못했습니다: ${file}`);
+  const { nameSuffix } = loadPersonas();
+  const roster = loadRoster();
+  const { errors, members } = validateProfiles(plan, roster, nameSuffix);
+  const dryRun = Boolean(flags["dry-run"]);
+
+  console.log(`프로필 ${plan.members?.length ?? 0}명${dryRun ? " (dry-run)" : ""}`);
+  if (errors.length) {
+    errors.forEach((e) => console.error(`  ✖ ${e}`));
+    fail(`프로필 파일에 문제가 ${errors.length}개 있습니다. 아무것도 바꾸지 않았습니다.`);
+  }
+  const describe = (entry) =>
+    [
+      entry.nick ? crewName(String(entry.nick).trim(), nameSuffix, 0) : null,
+      entry.avatarPath ? "사진" : null,
+      typeof entry.regionVisible === "boolean" ? `동네 노출 ${entry.regionVisible ? "켬" : "끔"}` : null,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+  if (dryRun) {
+    for (const entry of plan.members) console.log(`  ${entry.crew} ${members.get(entry.crew).name} → ${describe(entry)}`);
+    return console.log("검사 통과 (dry-run — 바꾸지 않음)");
+  }
+
+  let ok = 0;
+  let failed = 0;
+  for (const entry of plan.members) {
+    const member = members.get(entry.crew);
+    try {
+      const token = await crewToken(member);
+      const body = {};
+      if (entry.avatarPath) body.avatarId = await uploadImage(token, path.resolve(ROOT, entry.avatarPath));
+      if (typeof entry.regionVisible === "boolean") body.regionVisible = entry.regionVisible;
+      let saved = member.name;
+      if (entry.nick) {
+        saved = null;
+        for (let attempt = 0; attempt < 5 && !saved; attempt += 1) {
+          const name = crewName(String(entry.nick).trim(), nameSuffix, attempt);
+          try {
+            await api("POST", "/api/users/me", { token, body: { ...body, name } });
+            saved = name;
+          } catch (error) {
+            if (!/닉네임/.test(error.message)) throw error;
+          }
+        }
+        if (!saved) throw new Error("닉네임을 정하지 못했습니다(겹침)");
+      } else {
+        await api("POST", "/api/users/me", { token, body });
+      }
+      member.name = saved;
+      writeJson(ROSTER_FILE, roster);
+      ok += 1;
+      console.log(`  ✔ ${entry.crew} #${member.userId} ${saved} · ${describe({ ...entry, nick: undefined }) || "이름만"}`);
+    } catch (error) {
+      failed += 1;
+      console.error(`  ✖ ${entry.crew} ${member.name}: ${error.message}`);
+      if (error.status === 401 || error.status === 403) break;
+    }
+  }
+  console.log(`완료: 성공 ${ok} · 실패 ${failed}`);
+}
+
+/* ------------------------------------------------------------------ */
+/* edit — 이미 올린 크루 글·댓글 고치기                                  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * 수정 파일 형식:
+ * { "edits": [
+ *   { "type": "post", "crew": "c39", "id": 149, "title": "...", "description": "..." },
+ *   { "type": "comment", "crew": "c42", "postId": 137, "id": 39, "comment": "..." } ] }
+ * 같은 AI 냄새 검사를 거친다. 고치기 전 문장을 기록(.crew/log/edit-*.jsonl)에 남겨 되돌릴 수 있게 한다.
+ * 글을 고치면 '수정됨' 표시가 붙는다.
+ */
+async function edit(positional, flags) {
+  const file = positional[0];
+  if (!file) fail("수정 파일이 필요합니다: edit <edit.json>");
+  const plan = readJson(path.resolve(ROOT, file), null);
+  if (!plan) fail(`수정 파일을 읽지 못했습니다: ${file}`);
+  const members = new Map(loadRoster().members.map((m) => [m.key, m]));
+  const edits = plan.edits ?? [];
+  const errors = [];
+  edits.forEach((e, index) => {
+    const at = `#${index} ${e.type} ${e.crew}`;
+    if (!members.has(e.crew)) errors.push(`${at}: 모르는 크루`);
+    if (!Number.isInteger(e.id)) errors.push(`${at}: id 가 없습니다`);
+    if (e.type === "post") {
+      const len = String(e.description ?? "").trim().length;
+      if (!String(e.title ?? "").trim()) errors.push(`${at}: 제목이 없습니다`);
+      if (len < POST_BODY_MIN || len > POST_BODY_MAX) errors.push(`${at}: 본문 ${len}자(${POST_BODY_MIN}~${POST_BODY_MAX})`);
+    } else if (e.type === "comment") {
+      const len = String(e.comment ?? "").trim().length;
+      if (!Number.isInteger(e.postId)) errors.push(`${at}: postId 가 없습니다`);
+      if (!len || len > COMMENT_MAX) errors.push(`${at}: 댓글 ${len}자(1~${COMMENT_MAX})`);
+    } else errors.push(`${at}: post·comment 만 고칠 수 있습니다`);
+  });
+  const smell = lintPlan({ actions: edits });
+  errors.push(...smell.hard);
+  const dryRun = Boolean(flags["dry-run"]);
+
+  console.log(`수정: 글 ${edits.filter((e) => e.type === "post").length} · 댓글 ${edits.filter((e) => e.type === "comment").length}${dryRun ? " (dry-run)" : ""}`);
+  smell.soft.forEach((e) => console.log(`  △ ${e}`));
+  if (errors.length) {
+    errors.forEach((e) => console.error(`  ✖ ${e}`));
+    fail(`수정 파일에 문제가 ${errors.length}개 있습니다. 아무것도 고치지 않았습니다.`);
+  }
+  if (dryRun) return console.log("검사 통과 (dry-run — 고치지 않음)");
+
+  const logFile = path.join(LOG_DIR, `edit-${new Date().toISOString().replace(/[:.]/g, "-")}.jsonl`);
+  let ok = 0;
+  let failed = 0;
+  for (const [index, e] of edits.entries()) {
+    const member = members.get(e.crew);
+    try {
+      const token = await crewToken(member);
+      if (e.type === "post") {
+        const { post } = await api("GET", `/api/posts/${e.id}`, { token });
+        if (post.user.id !== member.userId) throw new Error("이 크루가 쓴 글이 아닙니다");
+        await api("POST", `/api/posts/${e.id}`, {
+          token,
+          // 분류·종을 보내지 않으면 서버가 비운다. 원래 값을 그대로 넘긴다. 사진 필드는 보내지 않아 그대로 둔다.
+          body: { action: "update", title: e.title.trim(), description: e.description.trim(), category: post.category, species: post.type },
+        });
+        appendJsonl(logFile, { index, type: "post", crew: e.crew, id: e.id, ok: true, before: { title: post.title, description: post.description } });
+        appendJsonl(HISTORY_FILE, { type: "post", crew: member.key, id: e.id, title: e.title.trim(), at: new Date().toISOString() });
+      } else {
+        const { post } = await api("GET", `/api/posts/${e.postId}`, { token });
+        const current = post.comments.find((c) => c.id === e.id);
+        if (!current || current.user.id !== member.userId) throw new Error("이 크루가 단 댓글이 아닙니다");
+        await api("PATCH", `/api/posts/${e.postId}/comments/${e.id}`, { token, body: { comment: e.comment.trim() } });
+        appendJsonl(logFile, { index, type: "comment", crew: e.crew, id: e.id, postId: e.postId, ok: true, before: { comment: current.comment } });
+      }
+      ok += 1;
+      console.log(`  ✔ #${index} ${e.type} ${e.id} ${member.name}`);
+    } catch (error) {
+      failed += 1;
+      appendJsonl(logFile, { index, type: e.type, crew: e.crew, id: e.id, ok: false, error: error.message });
+      console.error(`  ✖ #${index} ${e.type} ${e.id} ${member.name}: ${error.message}`);
+      if (error.status === 401 || error.status === 403) break;
+    }
+    if (index < edits.length - 1) await sleep(2000 + Math.random() * 3000);
+  }
+  console.log(`완료: 성공 ${ok} · 실패 ${failed}`);
+  console.log(`기록: ${path.relative(ROOT, logFile)} (before 에 고치기 전 문장)`);
+}
+
 async function cleanup(positional, flags) {
   const logFile = positional[0];
   if (!logFile) fail("기록 파일이 필요합니다: cleanup <log.jsonl>");
@@ -516,7 +945,7 @@ async function cleanup(positional, flags) {
     }
     try {
       const token = await crewToken(member);
-      if (entry.type === "post") {
+      if (entry.type === "post" || entry.type === "debate") {
         await api("POST", `/api/posts/${entry.id}`, { token, body: { action: "delete" } });
       } else if (entry.type === "comment") {
         await api("DELETE", `/api/posts/${entry.postId}/comments/${entry.id}`, { token });
@@ -535,13 +964,17 @@ const { positional, flags } = parseArgs(rest);
 const commands = {
   setup: () => setup(flags),
   list: () => list(),
+  roles: () => roles(),
   snapshot: () => snapshot(flags),
   apply: () => apply(positional, flags),
   cleanup: () => cleanup(positional, flags),
+  profile: () => profile(positional, flags),
+  lint: () => lint(positional, flags),
+  edit: () => edit(positional, flags),
 };
 
 if (!commands[command]) {
-  console.log("사용법: node scripts/crew/crew.mjs <setup|list|snapshot|apply|cleanup> …");
+  console.log("사용법: node scripts/crew/crew.mjs <setup|list|roles|snapshot|lint|apply|edit|cleanup|profile> …");
   process.exit(command ? 1 : 0);
 }
 Promise.resolve()
