@@ -1,11 +1,19 @@
 #!/bin/zsh
-# usage: ensure-login.sh  — 카페 계정 세션을 열고(없으면 NC_PROFILE 로) 네이버 로그인·카페 관리 권한을 확인한다.
+# usage: ensure-login.sh  — 브리디 자동화 크롬(CDP 9222)에 붙어 자기 탭을 열고 네이버 로그인·카페 관리 권한을 확인한다. 끝나면 release-login.sh.
 # 종료 코드: 0 준비됨 / 2 사람이 해야 함(캡차·2단계 인증·저장된 비밀번호 없음)
 source ${0:A:h}/env.sh
-if ! (cd "$NC_HOME" && npx --yes --package @playwright/cli playwright-cli list 2>/dev/null) | grep -A1 -- "- $NC_SESSION:" | grep -q "status: open"; then
-  : ${NC_PROFILE:?세션이 닫혀 있습니다. NC_PROFILE(이 계정 전용 크롬 프로필)을 정하세요}
-  rm -f "$NC_PROFILE"/Singleton* 2>/dev/null
-  pwc open "https://cafe.naver.com/ManageHome.nhn?clubid=$NC_CLUB" --browser chrome --headed --profile "$NC_PROFILE" >/dev/null; sleep 5
+"$HOME/.local/bin/bredy-chrome" || { echo "브리디 자동화 크롬(9222)이 안 켜짐"; exit 2; }
+mkdir -p "${NC_LOCK:h}"
+if [ "$(cat "$NC_LOCK/owner" 2>/dev/null)" != "$NC_SESSION" ]; then
+  while ! mkdir "$NC_LOCK" 2>/dev/null; do
+    [ -n "$(find "$NC_LOCK" -maxdepth 0 -mmin +30 2>/dev/null)" ] && rm -rf "$NC_LOCK"; sleep 2
+  done
+  echo "$NC_SESSION" > "$NC_LOCK/owner"
+fi
+if ! pwc tab-list 2>/dev/null | grep -q 'cafe.naver.com\|about:blank'; then
+  pwc detach >/dev/null 2>&1
+  (cd "$NC_HOME" && npx --yes --package @playwright/cli playwright-cli attach --cdp=http://127.0.0.1:9222 --session="$NC_SESSION" >/dev/null 2>&1)
+  pwc tab-new about:blank >/dev/null
 fi
 pwc goto "https://cafe.naver.com/ManageHome.nhn?clubid=$NC_CLUB" >/dev/null; pwc dialog-accept >/dev/null; sleep 4
 url=$(pwr eval "location.href")

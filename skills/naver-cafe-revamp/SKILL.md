@@ -7,12 +7,12 @@ description: 오래되거나 비어 있는 네이버 카페를 새 주제 카페
 
 ## 준비
 
-- 카페 계정 전용 브라우저 세션만 쓴다. ytw418 계정 카페(로봇천국·외국곤충연구회)는 playwright 세션 `robot-cafe`, 프로필 `~/Desktop/pro/robot-cafe/.chrome-profile`. 브리디 운영 계정(9222 자동화 크롬)·사용자 크롬과 섞지 않는다.
+- 브라우저는 브리디 자동화 크롬(CDP 9222) 하나다. 네이버 계정은 본계정 ytw418 하나뿐이라(10-19 사용자) 카페도 여기서 한다. playwright 세션 `robot-cafe` 로 붙어 자기 탭만 쓰고(robot-cafe-content 의 `ensure-browser.sh` / `release-browser.sh`), 네이버 잠금 `/tmp/bredy-chrome-locks/naver` 를 잡는다. 옛 전용 프로필 `~/Desktop/pro/robot-cafe/.chrome-profile` 은 안 쓴다.
 - 카페 찾기: 로그인한 세션에서 `apis.naver.com/cafe-home-web/cafe-home/v1/cafes/join?page=1&perPage=100&type=join` 을 fetch 해 `manageCafe:true` 와 이름으로 고른다. 기본 정보는 `apis.naver.com/cafe-web/cafe2/CafeGateInfo.json?cluburl=<주소>`(clubid·개설일·멤버 수), 메뉴는 `SideMenuList?cafeId=<C>`.
 - 작업 폴더 `~/Desktop/pro/<카페 이름>/` 을 만들고 변수를 정한다.
 
 ```bash
-export NC_HOME=~/Desktop/pro/insect-cafe NC_CLUB=16902363 NC_SESSION=robot-cafe NC_PROFILE=~/Desktop/pro/robot-cafe/.chrome-profile
+export NC_HOME=~/Desktop/pro/insect-cafe NC_CLUB=16902363 NC_SESSION=robot-cafe
 S=~/.claude/skills/naver-cafe-revamp/scripts
 $S/ensure-login.sh        # 0 준비됨 / 2 사람이 로그인해야 함(캡차·2단계 인증) → 사용자에게 알리고 멈춘다
 ```
