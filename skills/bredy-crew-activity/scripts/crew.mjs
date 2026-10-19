@@ -15,7 +15,8 @@
  * 명령
  *   setup   [--count 50] [--dry-run]           크루 계정 생성 + 이름·소개·동네 설정
  *   list                                       크루 목록
- *   snapshot [--pages 5]                       최근 게시글·댓글을 .crew/snapshot.json 으로
+ *   roles                                      분류별 역할표(정보·댓글·토론·질문·예비)
+ *   snapshot [--pages 5]                    최근 게시글·댓글을 .crew/snapshot.json 으로
  *   lint    <plan.json> [--strict]             글·댓글 AI 냄새 검사(apply 도 같은 검사로 막는다)
  *   apply   <plan.json> [--dry-run] [--min-delay 4] [--max-delay 12]
  *   edit    <edit.json> [--dry-run]            이미 올린 크루 글·댓글을 고친다(같은 AI 냄새 검사)
@@ -55,8 +56,36 @@ const BLOODLINE_NAME_PATTERN = /^[A-Za-z0-9가-힣 ]{2,40}$/;
 /** 공지는 운영 공지 전용, 후기는 거래 후기로 읽히므로 크루가 쓰지 않는다. */
 const CREW_POST_CATEGORIES = ["동네", "자유", "질문", "정보", "자랑", "사진", "변이"];
 /** 한 번 실행에 너무 많이 쏟아지지 않게 막는 상한. */
-const RUN_LIMITS = { post: 15, comment: 60, like: 120, follow: 60, bloodline: 5 };
+const RUN_LIMITS = { post: 15, debate: 7, comment: 60, like: 120, follow: 60, bloodline: 5 };
 const CREATE_BATCH_MAX = 20;
+
+/** 생물 분류(breeder_web libs/categoryTaxonomy.ts 사본). 크루 역할은 큰 분류마다 정한다. */
+const GROUPS = {
+  곤충: ["장수풍뎅이", "사슴벌레", "개미", "나비", "사마귀", "밀웜/귀뚜라미"],
+  절지류: ["타란튤라", "지네", "전갈", "등각류", "기타 절지류"],
+  파충류: ["레오파드 게코", "크레스티드 게코", "볼파이썬", "콘스네이크", "이구아나", "카멜레온", "육지거북", "수생거북"],
+  어류: ["구피", "베타", "코리도라스", "안시스트루스", "디스커스", "금붕어"],
+  포유류: ["고슴도치", "햄스터", "기니피그", "토끼", "페럿", "친칠라"],
+  양서류: ["팩맨", "엑솔로틀", "화이트트리프록", "다트프록", "뉴트"],
+  식물: ["관엽식물", "다육식물", "식충식물", "테라리움 식물", "수초"],
+};
+/** 종 이름(또는 큰 분류 이름) → 큰 분류. 모르면 null. */
+const groupOf = (species) =>
+  GROUPS[species] ? species : (Object.keys(GROUPS).find((group) => GROUPS[group].includes(species)) ?? null);
+/**
+ * 크루 역할(2026-10-19 사용자 결정): 분류마다 정보 1 · 댓글 3 · 토론 1 · 질문(질문·자유) 1.
+ * 남는 크루는 예비(좋아요·팔로우만). 역할은 personas.json 의 group·role 에 있다.
+ */
+const ROLES = ["정보", "댓글", "토론", "질문", "예비"];
+const ROLE_POST_CATEGORIES = { 정보: ["정보", "변이"], 질문: ["질문", "자유", "동네", "자랑", "사진"] };
+/** 찬반 토론 규칙(breeder_web libs/shared/debateFormat.ts 와 같은 값). */
+const DEBATE_CATEGORY = "토론";
+const DEBATE_QUESTION_MIN = 5;
+const DEBATE_QUESTION_MAX = 40;
+const DEBATE_OPTION_MAX = 12;
+const DEBATE_DESCRIPTION_MAX = 1000;
+const DEBATE_DURATIONS_HOURS = [72, 168, 24];
+const DEBATE_DAILY_LIMIT = 3;
 /** 크루는 거래하지 않으므로 가게·판매자처럼 보이는 닉네임을 쓰지 않는다. */
 const SELLER_LIKE_NICK = /샵|shop|스토어|store|분양|판매|매장|마켓/i;
 
@@ -265,8 +294,24 @@ function list() {
   if (!roster.members.length) return console.log("크루가 없습니다. setup 을 먼저 실행하세요.");
   for (const m of roster.members) {
     const p = byKey.get(m.key);
-    console.log(`${m.key}\t#${m.userId}\t${m.name}\t${p?.species.join(", ") ?? ""}\t${p?.tone ?? ""}`);
+    console.log(`${m.key}\t#${m.userId}\t${m.name}\t${p?.group ?? ""}·${p?.role ?? ""}\t${p?.species.join(", ") ?? ""}\t${p?.tone ?? ""}`);
   }
+}
+
+function roles() {
+  const { personas } = loadPersonas();
+  const names = new Map(loadRoster().members.map((m) => [m.key, m.name]));
+  const label = (p) => `${p.key} ${names.get(p.key) ?? p.nick}`;
+  for (const group of Object.keys(GROUPS)) {
+    const inGroup = personas.filter((p) => p.group === group);
+    const line = ROLES.map((role) => {
+      const who = inGroup.filter((p) => p.role === role);
+      return who.length ? `${role} ${who.map(label).join(", ")}` : null;
+    }).filter(Boolean);
+    console.log(`${group}\t${line.join(" | ")}`);
+  }
+  const loose = personas.filter((p) => !GROUPS[p.group] || !ROLES.includes(p.role));
+  if (loose.length) console.log(`역할 없음: ${loose.map(label).join(", ")}`);
 }
 
 /* ------------------------------------------------------------------ */
@@ -293,6 +338,7 @@ async function snapshot(flags) {
         description: clip(d.description, 600),
         imageCount: (d.images ?? []).length,
         likes: d._count?.Likes ?? 0,
+        ...(d.debate ? { debate: { optionA: d.debate.optionA, optionB: d.debate.optionB, endsAt: d.debate.endsAt, state: d.debate.state } } : {}),
         author: { id: d.user.id, name: d.user.name, isCrew: crewIds.has(d.user.id) },
         comments: d.comments
           .filter((c) => !c.deletedAt)
@@ -324,8 +370,13 @@ async function snapshot(flags) {
 function validatePlan(plan, roster) {
   const members = new Map(roster.members.map((m) => [m.key, m]));
   const crewIds = new Set(roster.members.map((m) => m.userId));
-  const knownTitles = new Set(readJsonl(HISTORY_FILE).filter((h) => h.type === "post").map((h) => titleKey(h.title)));
-  const snapshotTitles = new Set((readJson(SNAPSHOT_FILE, { posts: [] }).posts ?? []).map((p) => titleKey(p.title)));
+  const personas = new Map(loadPersonas().personas.map((p) => [p.key, p]));
+  const postHistory = readJsonl(HISTORY_FILE).filter((h) => h.type === "post");
+  const postAuthor = new Map(postHistory.map((h) => [h.id, h.crew]));
+  const snapshotPosts = new Map((readJson(SNAPSHOT_FILE, { posts: [] }).posts ?? []).map((p) => [p.id, p]));
+  const knownTitles = new Set(postHistory.map((h) => titleKey(h.title)));
+  const snapshotTitles = new Set([...snapshotPosts.values()].map((p) => titleKey(p.title)));
+  const debatesByCrew = {};
   const counts = {};
   const errors = [];
 
@@ -333,6 +384,19 @@ function validatePlan(plan, roster) {
     const at = `#${index} ${action.type}`;
     counts[action.type] = (counts[action.type] ?? 0) + 1;
     if (!members.has(action.crew)) errors.push(`${at}: 모르는 크루 ${action.crew}`);
+    const persona = personas.get(action.crew);
+    const role = persona?.role ?? "예비";
+    const checkTitle = () => {
+      const key = titleKey(action.title);
+      if (knownTitles.has(key) || snapshotTitles.has(key)) errors.push(`${at}: 이미 있는 제목 "${action.title}"`);
+      knownTitles.add(key);
+    };
+    // 글·토론은 자기 분류 안에서만(종 이름이나 큰 분류 이름).
+    const checkGroup = () => {
+      if (groupOf(action.species) !== persona?.group) {
+        errors.push(`${at}: species "${action.species ?? ""}" — ${action.crew} 는 ${persona?.group ?? "분류 없는"} 크루`);
+      }
+    };
 
     switch (action.type) {
       case "post": {
@@ -340,15 +404,43 @@ function validatePlan(plan, roster) {
         if (!String(action.title ?? "").trim()) errors.push(`${at}: 제목이 없습니다`);
         if (len < POST_BODY_MIN || len > POST_BODY_MAX) errors.push(`${at}: 본문 ${len}자(${POST_BODY_MIN}~${POST_BODY_MAX})`);
         if (!CREW_POST_CATEGORIES.includes(action.category)) errors.push(`${at}: 카테고리 ${action.category} 불가`);
-        const key = titleKey(action.title);
-        if (knownTitles.has(key) || snapshotTitles.has(key)) errors.push(`${at}: 이미 있는 제목 "${action.title}"`);
-        knownTitles.add(key);
+        const allowed = ROLE_POST_CATEGORIES[role] ?? [];
+        if (!allowed.includes(action.category)) {
+          errors.push(`${at}: ${action.crew} 는 ${role} 크루 — ${allowed.length ? `${allowed.join("·")} 글만` : "글을 쓰지 않는다"}`);
+        }
+        checkGroup();
+        checkTitle();
+        break;
+      }
+      case "debate": {
+        const title = String(action.title ?? "").trim();
+        const a = String(action.optionA ?? "").trim();
+        const b = String(action.optionB ?? "").trim();
+        if (role !== "토론") errors.push(`${at}: ${action.crew} 는 ${role} 크루 — 토론은 토론 크루만`);
+        if (title.length < DEBATE_QUESTION_MIN || title.length > DEBATE_QUESTION_MAX) {
+          errors.push(`${at}: 질문 ${title.length}자(${DEBATE_QUESTION_MIN}~${DEBATE_QUESTION_MAX})`);
+        }
+        if (!a || !b || a.length > DEBATE_OPTION_MAX || b.length > DEBATE_OPTION_MAX) errors.push(`${at}: 선택지는 1~${DEBATE_OPTION_MAX}자`);
+        else if (a.toLowerCase() === b.toLowerCase()) errors.push(`${at}: 두 선택지가 같습니다`);
+        if (!DEBATE_DURATIONS_HOURS.includes(action.durationHours ?? 72)) errors.push(`${at}: 기간은 ${DEBATE_DURATIONS_HOURS.join("·")}시간 중 하나`);
+        if (String(action.description ?? "").trim().length > DEBATE_DESCRIPTION_MAX) errors.push(`${at}: 설명 ${DEBATE_DESCRIPTION_MAX}자 넘음`);
+        debatesByCrew[action.crew] = (debatesByCrew[action.crew] ?? 0) + 1;
+        checkGroup();
+        checkTitle();
         break;
       }
       case "comment": {
         const len = String(action.comment ?? "").trim().length;
         if (!Number.isInteger(action.postId)) errors.push(`${at}: postId 가 없습니다`);
         if (!len || len > COMMENT_MAX) errors.push(`${at}: 댓글 ${len}자(1~${COMMENT_MAX})`);
+        // 댓글은 그 분류 댓글 크루가 단다. 글쓴이 본인이 자기 글 댓글에 답하는 것은 역할과 상관없이 된다.
+        const target = snapshotPosts.get(action.postId);
+        const own = postAuthor.get(action.postId) === action.crew || (target && target.author.id === members.get(action.crew)?.userId);
+        const targetGroup = groupOf(target?.species);
+        if (!own && role !== "댓글") errors.push(`${at}: ${action.crew} 는 ${role} 크루 — 댓글은 댓글 크루(또는 글쓴이 본인)만`);
+        else if (!own && targetGroup && targetGroup !== persona?.group) {
+          errors.push(`${at}: 글 #${action.postId} 는 ${targetGroup} — ${action.crew} 는 ${persona?.group} 댓글 크루`);
+        }
         break;
       }
       case "like":
@@ -370,6 +462,9 @@ function validatePlan(plan, roster) {
 
   for (const [type, limit] of Object.entries(RUN_LIMITS)) {
     if ((counts[type] ?? 0) > limit) errors.push(`${type} ${counts[type]}개 — 한 번에 ${limit}개까지`);
+  }
+  for (const [crew, n] of Object.entries(debatesByCrew)) {
+    if (n > DEBATE_DAILY_LIMIT) errors.push(`${crew} 토론 ${n}개 — 서버가 하루 ${DEBATE_DAILY_LIMIT}개까지 받는다`);
   }
   return { errors, counts, members, crewIds };
 }
@@ -398,6 +493,21 @@ async function runAction(action, member) {
         },
       });
       appendJsonl(HISTORY_FILE, { type: "post", crew: member.key, id: post.id, title: post.title, at: new Date().toISOString() });
+      return { id: post.id };
+    }
+    case "debate": {
+      // 찬반 토론 글(서버 pages/api/posts/index.ts 의 category === "토론" 분기). 사진 없음, 설명은 선택.
+      const { post } = await api("POST", "/api/posts", {
+        token,
+        body: {
+          title: action.title.trim(),
+          description: String(action.description ?? "").trim(),
+          category: DEBATE_CATEGORY,
+          species: action.species,
+          debate: { optionA: action.optionA.trim(), optionB: action.optionB.trim(), durationHours: action.durationHours ?? 72 },
+        },
+      });
+      appendJsonl(HISTORY_FILE, { type: "post", category: DEBATE_CATEGORY, crew: member.key, id: post.id, title: post.title, at: new Date().toISOString() });
       return { id: post.id };
     }
     case "comment": {
@@ -489,9 +599,9 @@ function lintPlan(plan) {
   const comments = [];
 
   (plan.actions ?? []).forEach((action, index) => {
-    if (action.type !== "post" && action.type !== "comment") return;
+    if (!["post", "debate", "comment"].includes(action.type)) return;
     const at = `#${index} ${action.type} ${action.crew}`;
-    const text = String(action.type === "post" ? action.description ?? "" : action.comment ?? "");
+    const text = String(action.type === "comment" ? action.comment ?? "" : action.description ?? "");
     const title = String(action.title ?? "");
     const voice = voiceOf.get(action.crew) ?? "default";
     const whole = `${title}\n${text}`;
@@ -513,6 +623,9 @@ function lintPlan(plan) {
       if (PAREN.test(text)) soft.push(`${at}: 괄호 덧말`);
       comments.push(text.trim());
     }
+    // 설명 없는 토론은 질문 한 줄뿐이라 말투 표시를 보지 않는다.
+    const questionOnly = action.type === "debate" && !text.trim();
+    if (questionOnly) return;
     if (voice === "twenties") {
       if (!LAUGH.test(whole)) soft.push(`${at}: 20대 말투인데 ㅋ·ㅎ·ㅠ·ㄹㅇ 가 없다`);
     } else if (voice === "cute") {
@@ -832,7 +945,7 @@ async function cleanup(positional, flags) {
     }
     try {
       const token = await crewToken(member);
-      if (entry.type === "post") {
+      if (entry.type === "post" || entry.type === "debate") {
         await api("POST", `/api/posts/${entry.id}`, { token, body: { action: "delete" } });
       } else if (entry.type === "comment") {
         await api("DELETE", `/api/posts/${entry.postId}/comments/${entry.id}`, { token });
@@ -851,6 +964,7 @@ const { positional, flags } = parseArgs(rest);
 const commands = {
   setup: () => setup(flags),
   list: () => list(),
+  roles: () => roles(),
   snapshot: () => snapshot(flags),
   apply: () => apply(positional, flags),
   cleanup: () => cleanup(positional, flags),
@@ -860,7 +974,7 @@ const commands = {
 };
 
 if (!commands[command]) {
-  console.log("사용법: node scripts/crew/crew.mjs <setup|list|snapshot|lint|apply|edit|cleanup|profile> …");
+  console.log("사용법: node scripts/crew/crew.mjs <setup|list|roles|snapshot|lint|apply|edit|cleanup|profile> …");
   process.exit(command ? 1 : 0);
 }
 Promise.resolve()
