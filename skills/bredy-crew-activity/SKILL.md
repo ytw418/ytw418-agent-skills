@@ -9,7 +9,7 @@ description: 브레디 크루(운영 계정)로 반려생활 커뮤니티에 활
 
 ## 위치
 
-- 이 스킬 폴더: `SKILL.md`, `personas.json`(크루 50명), `scripts/crew.mjs`(Node 18+, 의존성 없음).
+- 이 스킬 폴더: `SKILL.md`, `personas.json`(크루 50명), `scripts/crew.mjs`(Node 18+, 의존성 없음), `scripts/listings.mjs`(분양글·경매 등록).
 - 같은 내용이 breeder_web 저장소 `.claude/skills/crew-activity/` + `scripts/crew/crew.mjs` 에도 있다. 고치면 두 곳을 같이 고친다.
 - **명령은 breeder_web 루트에서 실행한다.** 상태·계획·기록이 그 아래 `.crew/`(breeder_web 가 gitignore)에 쌓인다.
 
@@ -21,7 +21,7 @@ CREW=~/.claude/skills/bredy-crew-activity/scripts/crew.mjs   # 동기화된 스�
 ## 지키는 것 (바꾸지 않는다)
 
 - 이름 뒤 `·크루`, 소개 앞 `브레디 크루 🐾` 를 지우거나 바꾸지 않는다. 글·댓글에서 "크루 아니다", "그냥 일반 유저"처럼 정체를 부정하지 않는다.
-- 거래 신뢰를 만드는 행동은 하지 않는다: 상품·경매 등록, 입찰, 채팅, 거래 후기, "이 판매자한테 샀는데 좋았어요" 같은 거래 경험담, 특정 판매자·상품 추천.
+- 거래 신뢰를 만드는 행동은 하지 않는다: 입찰, 채팅, 거래 후기, "이 판매자한테 샀는데 좋았어요" 같은 거래 경험담, 특정 판매자·상품 추천. **분양글·경매 등록은 2026-10-12 사용자 결정으로 예외** — 아래 '분양글·경매글 올리기' 절차로, 사용자가 "상품·경매 올려줘"라고 할 때만 한다.
 - 키우지 않는 개체를 키운다고 사진으로 꾸미지 않는다. 사진이 필요한 글(자랑·사진)과 혈통은 사용자가 준 실제 사진이 있을 때만 쓴다.
 - 의료·응급 질문(거식 2주 이상, 탈장, 출혈 등)엔 일반 정보만 주고 "파충류 진료 가능한 병원에 가 보세요"를 꼭 붙인다. 모르는 건 지어내지 않는다.
 - 동네 노출(`regionVisible`)은 켠다(2026-10-10 사용자 결정 — "동네 브리더 많아 보이면 좋다"). 크루도 동네 브리더 목록·홈 동네 섹션에 나온다. 채팅은 여전히 하지 않는다.
@@ -34,7 +34,7 @@ CREW=~/.claude/skills/bredy-crew-activity/scripts/crew.mjs   # 동기화된 스�
 
 ```bash
 export CREW_BASE_URL=https://bredy.app          # 운영. 시험은 프리뷰 URL 로 먼저
-export CREW_ADMIN_REFRESH_TOKEN=<관리자 refresh 토큰>   # 또는 CREW_ADMIN_TOKEN
+export CREW_ADMIN_REFRESH_TOKEN=<관리자 refresh 토큰>   # 또는 CREW_ADMIN_TOKEN. 크롬 AppleScript JS 가 꺼져 있으면 'Profile 1/Local Storage/leveldb' 에서 bredy:refreshToken 뒤 JWT(sub=2)를 뽑는다
 node $CREW setup --dry-run      # 만들 크루 미리 보기
 node $CREW setup                # 기본 50명(personas.json)
 ```
@@ -73,6 +73,18 @@ node $CREW profile .crew/profile-<날짜>.json             # 사용자 확인 �
 6. **검사**: `node $CREW apply .crew/plan-<날짜>.json --dry-run` (같은 AI 냄새 검사를 다시 한다)
 7. **실행**: `node $CREW apply .crew/plan-<날짜>.json`. 동작 사이에 4~12초 쉰다. 끝나면 성공·건너뜀·실패 수와 기록 파일(`.crew/log/*.jsonl`)을 보고한다.
 8. **되돌리기(필요할 때)**: `node $CREW cleanup .crew/log/<파일>.jsonl --dry-run` → 확인 뒤 `--dry-run` 없이. 그 실행에서 만든 글·댓글만 지운다(혈통은 관리자 화면에서 회수).
+
+## 분양글·경매글 올리기 (사용자가 요청할 때만, 2026-10-12 예외)
+
+```bash
+node scripts/listings.mjs .crew/listings-<날짜>.json --dry-run   # 크루·사진·길이·출처 줄 검사
+node scripts/listings.mjs .crew/listings-<날짜>.json             # 사용자 확인 뒤
+```
+
+- 계획 형식은 `.crew/listings-2026-10-12.json` 참고: `products[]`(crew·photo·name·category·productType·dealType·price·description), `auctions[]`(crew·photo·title·category·startPrice·minBidIncrement·hours 1~72·description). 종이 맞는 크루가 올린다.
+- **사진은 iNaturalist 사육 개체만**: API `observations?taxon_name=<학명>&captive=true&photo_license=cc0,cc-by,cc-by-sa`. 손 위·사육통 사진이 분양글답다(위키미디어 야생 사진은 "너무 가짜같다"). 가격표·상호가 보이는 사진은 뺀다. CC BY 는 설명 끝에 `사진: 이름 (iNaturalist, CC BY)` 한 줄(CC0 는 계획에 `"cc0": true`). 네이버 카페·인스타 등 남의 사진은 쓰지 않는다.
+- 글은 실제 분양글처럼 쓴다(해칭 시기·체중·먹이·직거래 지역·택배). 제목에 '판매'·'상품'은 쓰지 않는다. 경매는 등록 즉시 시작되고 실제 회원이 입찰·채팅할 수 있는데 크루는 답하지 않으니, 실행 전 사용자에게 이를 알린다.
+- 기록은 `.crew/log/listings-*.jsonl`(id·사진 id). 되돌리려면 관리자 화면에서 그 id 를 지운다.
 
 ## 이미 올린 글·댓글 고치기
 
