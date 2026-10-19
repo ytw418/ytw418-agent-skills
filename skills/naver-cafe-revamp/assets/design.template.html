@@ -1,0 +1,117 @@
+<!doctype html>
+<!-- 네이버 카페 타이틀(#banner 1080x220)·아이콘(#icon 150x150)·대문(#gate 840x300) 템플릿.
+     쓰는 법: $NC_HOME/assets/ 로 복사 → fonts/ 에 Pretendard otf 복사(~/Desktop/pro/bredy-marketing/assets/fonts)
+     → :root 색, 문구, #mascot 심볼을 카페 주제에 맞게 바꾼다(아래 예시는 외국곤충연구회의 사슴벌레)
+     → node scripts/render.mjs design.html "#banner=banner.png" "#icon=icon.png" "#gate=gate.png" 로 캡처 후 눈으로 확인. -->
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<style>
+  @font-face { font-family: P; src: url(fonts/Pretendard-Black.otf); font-weight: 900; }
+  @font-face { font-family: P; src: url(fonts/Pretendard-ExtraBold.otf); font-weight: 800; }
+  @font-face { font-family: P; src: url(fonts/Pretendard-Bold.otf); font-weight: 700; }
+  @font-face { font-family: P; src: url(fonts/Pretendard-SemiBold.otf); font-weight: 600; }
+  @font-face { font-family: P; src: url(fonts/Pretendard-Medium.otf); font-weight: 500; }
+  :root { --bg1: #2f7a4a; --bg2: #18502f; --bg3: #0c2d1b; --bg4: #06180e; --accent: #f5b638; --sub: #b6e88a; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #e9efe9; font-family: P, sans-serif; padding: 24px; display: flex; flex-direction: column; gap: 24px; align-items: flex-start; }
+
+  .forest { background: radial-gradient(120% 150% at 82% 18%, var(--bg1) 0%, var(--bg2) 36%, var(--bg3) 68%, var(--bg4) 100%); }
+  .rings { position: absolute; inset: 0; opacity: .13;
+    background-image: repeating-radial-gradient(circle at 88% 120%, rgba(214,240,190,.9) 0 1px, transparent 1px 22px);
+    mask-image: linear-gradient(90deg, transparent 0%, #000 50%, #000 100%); }
+
+  /* 타이틀 1080x220 */
+  #banner { position: relative; width: 1080px; height: 220px; overflow: hidden; color: #fff; }
+  #banner .copy { position: absolute; left: 56px; top: 30px; }
+  #banner .eyebrow { font-weight: 700; font-size: 14px; letter-spacing: .3em; color: var(--sub); }
+  #banner .title { font-weight: 900; font-size: 80px; line-height: 1; letter-spacing: -.03em; margin-top: 8px; }
+  #banner .title span { color: var(--accent); }
+  #banner .tags { margin-top: 16px; font-weight: 600; font-size: 17px; color: rgba(255,255,255,.84); letter-spacing: -.01em; }
+  #banner .chips { position: absolute; left: 560px; top: 40px; display: flex; flex-direction: column; gap: 10px; }
+  #banner .chip { font-weight: 800; font-size: 17px; padding: 9px 16px; border-radius: 999px; background: rgba(255,255,255,.1); border: 1.5px solid rgba(182,232,138,.55); width: max-content; }
+  #banner .chip b { color: var(--sub); margin-right: 6px; }
+  #banner .mascot { position: absolute; right: 80px; top: 10px; width: 160px; height: 202px; transform: rotate(14deg); }
+
+  /* 아이콘 150x150 */
+  #icon { position: relative; width: 150px; height: 150px; overflow: hidden; }
+  #icon svg.m { position: absolute; left: 22px; top: 6px; width: 106px; height: 134px; }
+
+  /* 대문 840x300 */
+  #gate { position: relative; width: 840px; height: 300px; overflow: hidden; color: #fff; }
+  #gate .copy { position: absolute; left: 44px; top: 40px; }
+  #gate .eyebrow { font-weight: 700; font-size: 13px; letter-spacing: .3em; color: var(--sub); }
+  #gate .h { font-weight: 900; font-size: 44px; line-height: 1.17; margin-top: 10px; letter-spacing: -.02em; }
+  #gate .h span { color: var(--accent); }
+  #gate .p { margin-top: 14px; font-weight: 600; font-size: 16px; line-height: 1.6; color: rgba(255,255,255,.86); }
+  #gate .mascot { position: absolute; right: 46px; top: 22px; width: 200px; height: 253px; transform: rotate(12deg); }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <linearGradient id="shell" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffd27a"/><stop offset=".45" stop-color="#d98a1e"/><stop offset="1" stop-color="#6b3507"/></linearGradient>
+    <linearGradient id="dark" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4a2a0c"/><stop offset="1" stop-color="#1e0f03"/></linearGradient>
+    <radialGradient id="glow"><stop offset="0" stop-color="#f5b638" stop-opacity=".45"/><stop offset="1" stop-color="#f5b638" stop-opacity="0"/></radialGradient>
+    <!-- 마스코트 (viewBox 0 0 150 190). 주제에 맞는 단순한 도형으로 바꾼다. 예시: 사슴벌레 -->
+    <symbol id="mascot" viewBox="0 0 150 190">
+      <ellipse cx="75" cy="112" rx="70" ry="74" fill="url(#glow)"/>
+      <!-- 다리 -->
+      <g fill="none" stroke="#2a1505" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M50 76 30 66 18 50"/><path d="M100 76 120 66 132 50"/>
+        <path d="M46 102 22 104 10 120"/><path d="M104 102 128 104 140 120"/>
+        <path d="M50 128 30 146 24 170"/><path d="M100 128 120 146 126 170"/>
+      </g>
+      <!-- 큰턱 -->
+      <path d="M62 44 C50 32 44 18 50 4 C52 14 58 22 66 30 L64 22 C68 28 70 36 70 42 Z" fill="url(#dark)"/>
+      <path d="M88 44 C100 32 106 18 100 4 C98 14 92 22 84 30 L86 22 C82 28 80 36 80 42 Z" fill="url(#dark)"/>
+      <!-- 더듬이 -->
+      <g fill="none" stroke="#2a1505" stroke-width="2.6" stroke-linecap="round"><path d="M60 48 44 44 38 34"/><path d="M90 48 106 44 112 34"/></g>
+      <!-- 머리 -->
+      <path d="M56 40 Q75 32 94 40 L98 58 Q75 64 52 58 Z" fill="url(#dark)"/>
+      <circle cx="56" cy="50" r="3" fill="#f5b638"/><circle cx="94" cy="50" r="3" fill="#f5b638"/>
+      <!-- 앞가슴등판 -->
+      <path d="M46 62 Q75 54 104 62 L106 80 Q75 90 44 80 Z" fill="url(#shell)"/>
+      <!-- 딱지날개 -->
+      <path d="M44 86 Q75 78 106 86 Q114 130 96 168 Q75 186 54 168 Q36 130 44 86 Z" fill="url(#shell)"/>
+      <path d="M75 82 L75 180" stroke="#5a2c05" stroke-width="2.4"/>
+      <path d="M56 96 Q52 120 58 146" fill="none" stroke="#fff3d6" stroke-width="4" stroke-linecap="round" opacity=".55"/>
+    </symbol>
+  </defs>
+</svg>
+
+<!-- 타이틀 -->
+<div id="banner" class="forest">
+  <div class="rings"></div>
+  <div class="copy">
+    <div class="eyebrow">EXOTIC INSECT SOCIETY · SINCE 2008</div>
+    <div class="title">외국곤충<span>연구회</span></div>
+    <div class="tags">외국 사슴벌레 · 장수풍뎅이 · 사육 자료 · 법·검역 소식</div>
+  </div>
+  <div class="chips">
+    <div class="chip"><b>01</b>해외 사육 연구</div>
+    <div class="chip"><b>02</b>합법화·검역 소식</div>
+    <div class="chip"><b>03</b>국내 곤충 사육</div>
+  </div>
+  <svg class="mascot" viewBox="0 0 150 190"><use href="#mascot"/></svg>
+</div>
+
+<!-- 아이콘 -->
+<div id="icon" class="forest">
+  <svg class="m" viewBox="0 0 150 190"><use href="#mascot"/></svg>
+</div>
+
+<!-- 대문 -->
+<div id="gate" class="forest">
+  <div class="rings"></div>
+  <div class="copy">
+    <div class="eyebrow">WELCOME TO EXOTIC INSECT SOCIETY</div>
+    <div class="h">외국 사슴벌레를 합법으로<br>키우는 날을 <span>함께 준비해요</span></div>
+    <div class="p">해외 사육 자료와 번역 · 검역본부 수입 허용 목록<br>국내 사슴벌레·장수풍뎅이 사육 · 곤충 표본</div>
+  </div>
+  <svg class="mascot" viewBox="0 0 150 190"><use href="#mascot"/></svg>
+</div>
+
+</body>
+</html>
