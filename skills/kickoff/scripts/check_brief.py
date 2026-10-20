@@ -7,6 +7,7 @@ board.py·serve.py 가 이 파일의 함수를 불러 쓴다.
 """
 import datetime
 import json
+import os
 import re
 import sys
 
@@ -19,7 +20,14 @@ DECISION_STATES = {"확정", "제안"}
 # 작업 단계. 앞의 셋은 check 판정으로 정하고, 뒤의 넷은 사용자가 정한다.
 KICKOFF_STAGES = {"검토 중", "질문 대기", "착수 가능"}
 USER_STAGES = {"진행 중", "보류", "취소", "완료"}
+# 작업(W-n) 단계. '자동'이면 관련 Q 로 정하고, 나머지는 사용자가 정한다.
+WORK_AUTO = "자동"
+WORK_USER_STAGES = ["진행 중", "완료", "보류", "취소"]
+WORK_FLOW = ["검토 중", "질문 대기", "결정 필요", "착수 가능", "진행 중", "완료"]
 DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
+# R-1·Q-12·D-3·W-2. PR-1·BR-3 같은 다른 키의 일부는 잡지 않는다
+REF = re.compile(r"(?<![A-Za-z0-9])[RQDW]-\d+(?!\d)")
+QREF = re.compile(r"(?<![A-Za-z0-9])Q-\d+(?!\d)")
 
 
 def split_row(line, honor_code=True):
@@ -220,7 +228,7 @@ def check_text(text, path="", today=None):
     for d in decisions:
         if d.get("상태") != "제안":
             continue
-        related = re.findall(r"Q-\d+", d.get("관련 Q", ""))
+        related = QREF.findall(d.get("관련 Q", ""))
         if related and not any(qmap.get(r, {}).get("상태") in {"질문함", "답 옴", "열림"} for r in related):
             warnings.append(f"{d.get('ID')}가 제안인데 관련 Q({', '.join(related)})가 모두 닫혔다 — 담당자 동의를 묻는 Q를 질문함으로 둔다")
 
@@ -241,15 +249,85 @@ def check_text(text, path="", today=None):
         days = (today - w["oldest"]).days if w["oldest"] else None
         waiting_list.append({"owner": w["owner"], "ids": w["ids"], "since": w["oldest"].isoformat() if w["oldest"] else None, "days": days})
 
+    # 7장 작업 목록: 작업마다 지금 단계를 계산한다
+    ids = {r.get("ID") for r in reqs} | {q.get("ID") for q in qs} | {d.get("ID") for d in decisions}
+    work_rows = parse_table(sections.get("7.", []))
+    if work_rows and "단계" not in work_rows[0]:
+        work_rows = []
+    if not work_rows and "7." in sections:
+        warnings.append("7장이 작업 목록(W-n 표) 형식이 아니다 — SKILL.md 7단계대로 표로 바꾼다")
+    rows_by_id = {w.get("ID", ""): w for w in work_rows}
+    ids |= set(rows_by_id)
+
+    def own_stage(w):
+        """사용자가 정한 단계가 있으면 그것, 없으면 None."""
+        v = w.get("단계", "") or WORK_AUTO
+        return v if v in WORK_USER_STAGES else None
+
+    work, seen = [], set()
+    for w in work_rows:
+        wid = w.get("ID", "")
+        if not re.fullmatch(r"W-\d+", wid):
+            errors.append(f"7장 ID 형식이 W-n 이 아니다: '{wid}'")
+        if wid in seen:
+            errors.append(f"7장 ID 중복: {wid}")
+        seen.add(wid)
+        set_stage = w.get("단계", "") or WORK_AUTO
+        if set_stage != WORK_AUTO and set_stage not in WORK_USER_STAGES:
+            errors.append(f"{wid} 단계가 '{WORK_AUTO}' 또는 {WORK_USER_STAGES} 중 하나가 아니다: '{set_stage}'")
+        related = REF.findall(w.get("관련", ""))
+        missing = [r for r in related if r not in ids]
+        if missing:
+            warnings.append(f"{wid} 관련 ID 가 문서에 없다: {', '.join(missing)}")
+        rq = [qmap[r] for r in related if r in qmap]
+        before = [r for r in related if r.startswith("W-") and r != wid and r in rows_by_id and own_stage(rows_by_id[r]) not in {"완료", "취소"}]
+        ids_of = lambda st: ", ".join(q["ID"] for q in rq if q.get("상태") == st)
+        if set_stage in WORK_USER_STAGES:
+            stage, why = set_stage, "사용자가 정함"
+        elif missing:
+            stage, why = "검토 중", "문서에 없는 ID: " + ", ".join(missing)
+        elif any(q.get("상태") == "답 옴" for q in rq):
+            stage, why = "결정 필요", "답 옴: " + ids_of("답 옴")
+        elif any(q.get("상태") == "질문함" for q in rq):
+            stage, why = "질문 대기", "질문함: " + ids_of("질문함")
+        elif any(q.get("상태") == "열림" for q in rq):
+            stage, why = "검토 중", "아직 분류 안 됨: " + ids_of("열림")
+        elif before:
+            stage, why = "질문 대기", "앞 작업: " + ", ".join(before)
+        elif any(q.get("상태") == "추천(확인 전)" for q in rq):
+            stage, why = "착수 가능", "기본값으로 진행: " + ids_of("추천(확인 전)")
+        else:
+            stage, why = "착수 가능", "관련 질문이 모두 정해짐" if rq else "관련 질문 없음"
+        waits = [first_date(q.get("답")) for q in rq if q.get("상태") == "질문함"]
+        waits = [d for d in waits if d]
+        work.append({
+            "id": wid, "title": w.get("작업", ""), "related": related, "owner": w.get("담당", ""),
+            "stage_set": set_stage, "stage": stage, "why": why, "memo": w.get("메모", ""),
+            "wait_days": (today - min(waits)).days if waits else None,
+        })
+    work_counts = {s: 0 for s in WORK_FLOW + ["보류", "취소"]}
+    for w in work:
+        work_counts[w["stage"]] = work_counts.get(w["stage"], 0) + 1
+    progress = {"done": work_counts["완료"], "total": len(work) - work_counts["취소"]}
+
     early = ""
     for line in sections.get("7.", []):
         m = re.match(r"^-\s*막힘과 무관해 먼저 시작할 수 있는 것:\s*(.*)$", line)
         if m:
             early = m.group(1).strip()
 
+    ready = [w["id"] for w in work if w["stage"] == "착수 가능"]
+    if work:
+        early = (", ".join(ready) + " 은 바로 시작할 수 있다") if ready else ""
+
     important_asked = [q.get("ID") for q in qs if q.get("영향") == "중요" and q.get("상태") == "질문함"]
     verdict = "착수 가능" if not blocking else "질문 대기"
 
+    if path:
+        folder = os.path.basename(os.path.dirname(os.path.normpath(path)))
+        tid = re.sub(r"\s*\(.*\)\s*$", "", meta.get("작업 id", ""))
+        if tid and folder and folder != "out2" and not re.fullmatch(r"[A-Z][A-Z0-9]+-\d+", tid) and tid != folder:
+            warnings.append(f"0장 작업 id '{tid}' 가 폴더 이름 '{folder}' 와 다르다")
     stage = meta.get("상태", "")
     stage_key = next((s for s in KICKOFF_STAGES | USER_STAGES if stage.startswith(s)), "")
     if not stage_key:
@@ -279,6 +357,9 @@ def check_text(text, path="", today=None):
         "important_asked": important_asked,
         "proposals": proposals,
         "early_start": early,
+        "work": work,
+        "work_counts": work_counts,
+        "progress": progress,
         "counts": {"requirements": len(reqs), "questions": len(qs), "acceptance": len(acs)},
     }
 
@@ -317,6 +398,11 @@ def main():
             print(f"  중요 항목 답 대기(판정에는 안 셈): {', '.join(result['important_asked'])}")
         if result["proposals"]:
             print(f"  담당자 확인이 필요한 설계 제안: {', '.join(result['proposals'])}")
+        if result["work"]:
+            p = result["progress"]
+            print(f"작업 {len(result['work'])}개, 완료 {p['done']}/{p['total']}")
+            for w in result["work"]:
+                print(f"  {w['id']} [{w['stage']}] {w['title']} — {w['why']}")
     sys.exit(1 if result["errors"] else 0)
 
 

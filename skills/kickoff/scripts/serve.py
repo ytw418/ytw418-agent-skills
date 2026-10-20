@@ -6,7 +6,7 @@
 
 화면이 쓰는 것:
   - <작업>/inbox.json : 카드 답·받은 답에 대한 결정·제출 여부. 에이전트가 읽어 brief.md 에 반영한 뒤 inbox-applied/ 로 옮긴다.
-  - <작업>/brief.md   : 단계(0장 상태) 변경만 바로 고치고 9장 변경 기록에 한 줄 남긴다.
+  - <작업>/brief.md   : 단계(0장 상태·7장 작업 단계 칸) 변경만 바로 고치고 9장 변경 기록에 한 줄 남긴다.
 """
 import datetime
 import importlib.util
@@ -28,8 +28,17 @@ board = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(board)
 check_brief = board.check_brief
 
-UI = HERE.parent / "assets" / "ui.html"
+UI_DIST = HERE.parent / "ui" / "dist"  # ui/ 를 빌드한 결과(저장소에 함께 커밋한다)
+TYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8",
+         ".svg": "image/svg+xml", ".png": "image/png", ".woff2": "font/woff2", ".json": "application/json", ".ico": "image/x-icon"}
+NOT_BUILT = """<!doctype html><meta charset="utf-8"><title>킥오프</title>
+<body style="font-family:-apple-system,sans-serif;padding:40px;line-height:1.7">
+<h2>화면을 아직 빌드하지 않았어요</h2>
+<p>터미널에서 아래를 한 번 실행한 뒤 새로고침해 주세요.</p>
+<pre style="background:#f2f4f6;padding:12px;border-radius:8px">npm --prefix {ui} install
+npm --prefix {ui} run build</pre></body>"""
 STAGES = check_brief.KICKOFF_STAGES | check_brief.USER_STAGES
+WORK_STAGES = {check_brief.WORK_AUTO, *check_brief.WORK_USER_STAGES}
 REPLY_DECISIONS = {"반영", "추가 질문", "빼기"}
 MAX_BODY = 64 * 1024
 LOCK = threading.Lock()  # inbox.json·brief.md 를 읽고 고치고 쓰는 동안 한 요청만
@@ -92,12 +101,69 @@ def sections_for_ui(text):
     return out
 
 
-def set_stage(brief_path, value, note):
-    text = brief_path.read_text(encoding="utf-8")
+def join_row(cells):
+    return "| " + " | ".join(c.replace("|", "\\|") for c in cells) + " |"
+
+
+def append_log(lines, text):
+    """9장 변경 기록 끝에 한 줄 붙인다."""
+    idx9 = next((i for i, l in enumerate(lines) if re.match(r"^##\s+9\.", l)), None)
+    if idx9 is None:
+        lines += ["", "## 9. 변경 기록", text]
+        return
+    end = next((i for i in range(idx9 + 1, len(lines)) if lines[i].startswith("## ")), len(lines))
+    while end > idx9 + 1 and not lines[end - 1].strip():
+        end -= 1
+    lines.insert(end, text)
+
+
+def read_lines(path):
     # splitlines 는 U+2028 같은 글자에서도 줄을 나눠 표 칸을 깨뜨리므로 \n 으로만 나눈다
-    lines = [l.rstrip("\r") for l in text.split("\n")]
+    lines = [l.rstrip("\r") for l in path.read_text(encoding="utf-8").split("\n")]
     if lines and lines[-1] == "":
         lines.pop()
+    return lines
+
+
+def set_work_stage(brief_path, wid, value, note):
+    """7장 작업 목록에서 wid 행의 '단계' 칸만 바꾼다. 바뀐 게 없으면 False."""
+    lines = read_lines(brief_path)
+    start = next((i for i, l in enumerate(lines) if re.match(r"^##\s+7\.", l)), None)
+    if start is None:
+        raise ValueError("7장을 찾지 못했다")
+    end = next((i for i in range(start + 1, len(lines)) if lines[i].startswith("## ")), len(lines))
+    # check_brief 와 같은 기준: 다음 줄이 구분선(|---|)인 첫 표가 작업 목록이다
+    head = next((i for i in range(start + 1, end - 1)
+                 if lines[i].strip().startswith("|") and check_brief.SEPARATOR.match(lines[i + 1].strip())), None)
+    if head is None:
+        raise ValueError("7장 작업 목록 표를 찾지 못했다")
+    header = check_brief.split_row(lines[head])
+    if "단계" not in header or "ID" not in header:
+        raise ValueError("7장 작업 목록 표에 ID·단계 열이 없다")
+    col, idc, old = header.index("단계"), header.index("ID"), None
+    for i in range(head + 2, end):
+        if not lines[i].strip().startswith("|"):
+            break
+        cells = check_brief.split_row(lines[i])
+        cells += [""] * (len(header) - len(cells))
+        if cells[idc] == wid:
+            old = cells[col] or check_brief.WORK_AUTO
+            if old == value:
+                return False
+            cells[col] = value
+            lines[i] = join_row(cells)
+            break
+    if old is None:
+        raise ValueError(f"{wid} 작업을 찾지 못했다")
+    today = datetime.date.today().isoformat()
+    append_log(lines, f"- {today} {wid} 단계 {old} → {value}" + (f" ({note})" if note else "") + " — 화면에서 변경")
+    atomic_write(brief_path, "\n".join(lines) + "\n")
+    return True
+
+
+def set_stage(brief_path, value, note):
+    """0장 상태 행만 바꾸고 9장에 기록한다."""
+    lines = read_lines(brief_path)
     in0, done = False, False
     for i, line in enumerate(lines):
         if re.match(r"^##\s+0\.", line):
@@ -112,16 +178,7 @@ def set_stage(brief_path, value, note):
     if not done:
         raise ValueError("0장 상태 행을 찾지 못했다")
     today = datetime.date.today().isoformat()
-    log = f"- {today} 상태 → {value}" + (f" ({note})" if note else "") + " — 화면에서 변경"
-    # 9장 끝에 붙인다
-    idx9 = next((i for i, l in enumerate(lines) if re.match(r"^##\s+9\.", l)), None)
-    if idx9 is None:
-        lines += ["", "## 9. 변경 기록", log]
-    else:
-        end = next((i for i in range(idx9 + 1, len(lines)) if lines[i].startswith("## ")), len(lines))
-        while end > idx9 + 1 and not lines[end - 1].strip():
-            end -= 1
-        lines.insert(end, log)
+    append_log(lines, f"- {today} 상태 → {value}" + (f" ({note})" if note else "") + " — 화면에서 변경")
     atomic_write(brief_path, "\n".join(lines) + "\n")
 
 
@@ -168,18 +225,38 @@ class Handler(BaseHTTPRequestHandler):
             return False
         return True
 
+    def send_bytes(self, data, ctype, cache="no-store"):
+        self.send_response(200)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Cache-Control", cache)
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def serve_ui(self, path):
+        index = UI_DIST / "index.html"
+        if not index.is_file():
+            self.send_bytes(NOT_BUILT.replace("{ui}", str(UI_DIST.parent)).encode("utf-8"), "text/html; charset=utf-8")
+            return
+        rel = urllib.parse.unquote(path.lstrip("/"))
+        try:
+            target = (UI_DIST / rel).resolve() if rel else index
+        except (ValueError, OSError):
+            target = index
+        if not target.is_file() or UI_DIST.resolve() not in target.parents:
+            if rel.startswith("assets/"):
+                self.send_json({"error": "없는 파일"}, 404)  # 옛 빌드를 캐시한 화면이 엉뚱한 HTML 을 받지 않게
+                return
+            target = index  # 화면 안 주소(#/…)는 모두 index.html 이 처리한다
+        cache = "public, max-age=31536000, immutable" if "/assets/" in str(target) else "no-store"
+        self.send_bytes(target.read_bytes(), TYPES.get(target.suffix, "application/octet-stream"), cache)
+
     def do_GET(self):
         if not self.host_ok():
             return
         path = self.path.split("?", 1)[0]
-        if path in {"/", "/index.html"}:
-            data = UI.read_bytes()
-            self.send_response(200)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.send_header("Cache-Control", "no-store")
-            self.send_header("Content-Length", str(len(data)))
-            self.end_headers()
-            self.wfile.write(data)
+        if not path.startswith("/api/"):
+            self.serve_ui(path)
             return
         if path == "/api/board":
             self.send_json({"root": str(self.root), "columns": board.COLUMNS, "tasks": board.collect(str(self.root))})
@@ -215,7 +292,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         if not self.host_ok() or not self.post_ok():
             return
-        m = re.match(r"^/api/task/([^/]+)/(inbox|stage)$", self.path.split("?", 1)[0])
+        m = re.match(r"^/api/task/([^/]+)/(inbox|stage|work)$", self.path.split("?", 1)[0])
         if not m:
             self.send_json({"error": "없는 주소"}, 404)
             return
@@ -244,6 +321,19 @@ class Handler(BaseHTTPRequestHandler):
     def handle_post(self, d, kind_path, body):
         now = datetime.datetime.now().isoformat(timespec="seconds")
 
+        if kind_path == "work":
+            wid, value = str(body.get("id", "")), str(body.get("stage", ""))
+            if not re.fullmatch(r"W-\d+", wid) or value not in WORK_STAGES:
+                self.send_json({"error": f"id 는 W-n, stage 는 {sorted(WORK_STAGES)} 중 하나"}, 400)
+                return
+            try:
+                changed = set_work_stage(d / "brief.md", wid, value, one_line(body.get("note"), 200))
+            except ValueError as e:
+                self.send_json({"error": str(e)}, 400)
+                return
+            self.send_json({"ok": True, "changed": changed})
+            return
+
         if kind_path == "stage":
             value = str(body.get("value", ""))
             if value not in STAGES:
@@ -265,6 +355,15 @@ class Handler(BaseHTTPRequestHandler):
             if not isinstance(inbox.get(k), dict):
                 inbox[k] = {}
         kind = body.get("type")
+        if inbox.get("submitted") and kind in {"card", "reply", "unset", "submit"}:
+            self.send_json({"error": "이미 제출했어요. 다시 고치려면 '다시 고치기'를 눌러 주세요"}, 409)
+            return
+        if kind == "reopen":
+            inbox["submitted"] = False
+            inbox.pop("submitted_at", None)
+            atomic_write(inbox_path, json.dumps(inbox, ensure_ascii=False, indent=2))
+            self.send_json({"ok": True, "inbox": inbox})
+            return
         if kind == "card":
             cid = str(body.get("id", ""))[:40]
             if not cid:
@@ -287,7 +386,7 @@ class Handler(BaseHTTPRequestHandler):
             inbox["submitted"] = True
             inbox["submitted_at"] = now
         else:
-            self.send_json({"error": "type 은 card / reply / unset / submit"}, 400)
+            self.send_json({"error": "type 은 card / reply / unset / submit / reopen"}, 400)
             return
         if kind != "submit":
             inbox["submitted"] = False

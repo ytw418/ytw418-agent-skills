@@ -49,7 +49,8 @@ def task_state(d):
     except (OSError, UnicodeDecodeError) as e:
         r = {"title": d.name, "task_id": "", "kind": "", "stage": "검토 중", "stage_text": "", "errors": [f"brief.md 를 읽지 못했다: {e}"],
              "warnings": [], "verdict": "질문 대기", "blocking": [], "asked": [], "replied": [], "waiting": [], "defaults": [],
-             "important_asked": [], "proposals": [], "early_start": "", "counts": {}}
+             "important_asked": [], "proposals": [], "early_start": "", "counts": {},
+             "work": [], "work_counts": {}, "progress": {"done": 0, "total": 0}}
     inbox = read_json(d / "inbox.json") if (d / "inbox.json").exists() else None
     if inbox is not None and not isinstance(inbox, dict):
         r["errors"].append("inbox.json 이 객체가 아니다")
@@ -124,6 +125,19 @@ def waiting_text(t):
     return ", ".join(parts)
 
 
+def work_text(t):
+    """진행 W-1 · 착수 가능 W-2 · 완료 1/5"""
+    if not t.get("work"):
+        return ""
+    by = {}
+    for w in t["work"]:
+        by.setdefault(w["stage"], []).append(w["id"])
+    parts = [f"{s} {', '.join(by[s])}" for s in ("결정 필요", "진행 중", "착수 가능") if s in by]
+    p = t["progress"]
+    parts.append(f"완료 {p['done']}/{p['total']}")
+    return " · ".join(parts)
+
+
 def display_name(t):
     name = t["title"] or t["slug"]
     tid = re.sub(r"\s*\(.*\)\s*$", "", t["task_id"] or "")
@@ -146,12 +160,12 @@ def main():
     if not tasks:
         print(f"{root} 에 진행 중인 킥오프가 없다.")
         return
-    print("| 단계 | 작업 | 구분 | 답 대기 | 다음 할 일 |")
-    print("|---|---|---|---|---|")
+    print("| 단계 | 프로젝트 | 구분 | 작업 | 답 대기 | 다음 할 일 |")
+    print("|---|---|---|---|---|---|")
     for col in COLUMNS:
         for t in [t for t in tasks if t["column"] == col]:
             flag = " ⚠ 형식 오류" if t["errors"] else ""
-            print(f"| {col} | {display_name(t)}{flag} | {t['kind']} | {waiting_text(t) or '-'} | {next_action(t) or '-'} |")
+            print(f"| {col} | {display_name(t)}{flag} | {t['kind']} | {work_text(t) or '-'} | {waiting_text(t) or '-'} | {next_action(t) or '-'} |")
 
 
 if __name__ == "__main__":
