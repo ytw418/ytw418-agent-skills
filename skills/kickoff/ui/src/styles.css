@@ -407,3 +407,11 @@ table.t td .short { white-space: nowrap; }
 .col .c-name { word-break: keep-all; }
 .qsec.internal { background: var(--ink-100); border-color: transparent; }
 .qsec.internal summary { cursor: pointer; font-size: 13.5px; }
+
+/* 작업 화면 스크린샷 */
+.shots { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-top: 8px; }
+.shot { display: flex; flex-direction: column; gap: 4px; text-decoration: none; color: inherit; }
+.shot img { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; object-position: top; border-radius: 10px; border: 1px solid var(--line); background: #f2f4f6; }
+.shot:hover img { border-color: #3182f6; }
+.shot-cap { font-size: 14px; font-weight: 600; word-break: break-all; }
+.shot-time { font-size: 12px; }

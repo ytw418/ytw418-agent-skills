@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { api, type Inbox, type WorkItem } from "../../lib/api";
+import { api, shotUrl, type Inbox, type Shot, type WorkItem } from "../../lib/api";
 import { Inline } from "../../lib/md";
 import { STAGE_HINT, STAGE_TONE, idsOf } from "../../lib/stages";
 import { Badge, BottomSheet, Button, ChatIcon, SegmentedControl, TextArea, useOverlay } from "../../ui";
@@ -22,8 +22,8 @@ function metaText(w: WorkItem) {
 }
 
 /** 작업을 누르면 올라오는 시트: 왜 이 단계인지, 받은 답 정하기, 관련 항목, 단계 바꾸기 */
-export function WorkSheet({ slug, w, ids, inbox, pending, onClose, onMove, refresh }: {
-  slug: string; w: WorkItem | null; ids: Map<string, Record<string, string>>; inbox: Inbox | null; pending: Set<string>;
+export function WorkSheet({ slug, w, shots, ids, inbox, pending, onClose, onMove, refresh }: {
+  slug: string; w: WorkItem | null; shots: Shot[]; ids: Map<string, Record<string, string>>; inbox: Inbox | null; pending: Set<string>;
   onClose: () => void; onMove: (w: WorkItem, to: string) => void; refresh: () => void;
 }) {
   const { toast } = useOverlay();
@@ -58,6 +58,24 @@ export function WorkSheet({ slug, w, ids, inbox, pending, onClose, onMove, refre
         <span className="muted" style={{ fontSize: 14 }}>{shown === "반영 중" ? "제출한 답을 반영하고 있어요" : STAGE_HINT[w.stage]}</span>
       </div>
       <div className="faint" style={{ fontSize: 13, marginTop: 6 }}>{metaText(w)}</div>
+
+      {shots.length > 0 && (
+        <>
+          <div style={{ marginTop: 18, fontWeight: 700 }}>작업 화면 <span className="faint" style={{ fontWeight: 400, fontSize: 13 }}>{shots.length}장 · 최신 순</span></div>
+          <div className="shots">
+            {shots.map((s) => {
+              const src = shotUrl(slug, w.id, s.file) + s.mtime;
+              return (
+                <a key={s.file} className="shot" href={src} target="_blank" rel="noreferrer">
+                  <img src={src} alt={s.caption} loading="lazy" />
+                  <span className="shot-cap">{s.caption}</span>
+                  <span className="faint shot-time">{new Date(s.mtime * 1000).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+                </a>
+              );
+            })}
+          </div>
+        </>
+      )}
 
       {replies.length > 0 && !submitted && replies.map((q) => {
         const r = ids.get(q)!;

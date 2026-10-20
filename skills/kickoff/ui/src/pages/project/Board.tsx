@@ -32,8 +32,8 @@ function whyText(w: WorkItem, shown: string) {
   return w.memo;
 }
 
-function WorkCard({ w, shown, fresh, onOpen, onDragState }: {
-  w: WorkItem; shown: string; fresh: boolean; onOpen: () => void; onDragState: (id: string | null) => void;
+function WorkCard({ w, shown, fresh, shotCount, onOpen, onDragState }: {
+  w: WorkItem; shown: string; fresh: boolean; shotCount: number; onOpen: () => void; onDragState: (id: string | null) => void;
 }) {
   const [dragging, setDragging] = useState(false);
   const who = roles(w.owner)[0];
@@ -51,6 +51,7 @@ function WorkCard({ w, shown, fresh, onOpen, onDragState }: {
       <div className="w-top">
         <span className="w-id">{w.id}</span>
         {who && who !== "본인" && <Badge tone="grey" size="sm">{who}</Badge>}
+        {shotCount > 0 && <Badge tone="blue" size="sm">화면 {shotCount}</Badge>}
         <span className="w-ind"><Indicator w={w} shown={shown} fresh={fresh} /></span>
       </div>
       <div className="w-title">{w.title}</div>
@@ -64,8 +65,8 @@ function WorkCard({ w, shown, fresh, onOpen, onDragState }: {
  * 위치는 보드 기준 레이아웃 좌표(offsetLeft/Top)로 재므로, 위쪽이 밀리거나 폴링으로 다시 그려도 헛 애니메이션이 없다.
  * 착수 가능(자동)·진행 중·완료 열에 끌어다 놓을 수 있다. 나머지 열은 질문 상태로 정해진다.
  */
-export function Board({ work, pending, onOpen, onMove, focus }: {
-  work: WorkItem[]; pending: Set<string>; onOpen: (w: WorkItem) => void; onMove: (w: WorkItem, to: string) => void; focus: { stage: WorkStage; at: number } | null;
+export function Board({ work, shots, pending, onOpen, onMove, focus }: {
+  work: WorkItem[]; shots: Record<string, unknown[]>; pending: Set<string>; onOpen: (w: WorkItem) => void; onMove: (w: WorkItem, to: string) => void; focus: { stage: WorkStage; at: number } | null;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const rects = useRef(new Map<string, { x: number; y: number }>());
@@ -137,7 +138,7 @@ export function Board({ work, pending, onOpen, onMove, focus }: {
                 <span className="c-count">{items.length}</span>
               </div>
               {items.map((w) => (
-                <WorkCard key={w.id} w={w} shown={shownStage(w, pending)} fresh={fresh.has(w.id)} onOpen={() => onOpen(w)} onDragState={setDragId} />
+                <WorkCard key={w.id} w={w} shown={shownStage(w, pending)} fresh={fresh.has(w.id)} shotCount={shots[w.id]?.length ?? 0} onOpen={() => onOpen(w)} onDragState={setDragId} />
               ))}
               {!items.length && <div className="c-empty">{dragged && canDrop ? "여기에 놓아요" : ""}</div>}
             </section>

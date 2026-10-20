@@ -109,8 +109,18 @@ export interface TaskDetail {
   cards: { round?: number; cards: Card[] } | null;
   inbox: Inbox | null;
   questions_md: string | null;
+  shots?: Record<string, Shot[]>;
   updated: number;
 }
+
+export interface Shot {
+  file: string;
+  caption: string;
+  mtime: number;
+}
+
+export const shotUrl = (slug: string, wid: string, file: string) =>
+  `/api/task/${encodeURIComponent(slug)}/shots/${encodeURIComponent(wid)}/${encodeURIComponent(file)}?v=`;
 
 async function request<T>(path: string, body?: unknown): Promise<T> {
   const res = await fetch(path, body === undefined ? { cache: "no-store" } : {

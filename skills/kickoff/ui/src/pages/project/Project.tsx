@@ -95,7 +95,7 @@ export function Project({ slug, tab }: { slug: string; tab: string | null }) {
         {c.work.length > 0 ? (
           <section className="surface area-board">
             <Flow work={c.work} pending={pending} onPick={(s) => setFocus({ stage: s, at: performance.now() })} />
-            <Board work={c.work} pending={pending} onOpen={(w) => setOpenId(w.id)} onMove={moveWork} focus={focus} />
+            <Board work={c.work} shots={d.shots ?? {}} pending={pending} onOpen={(w) => setOpenId(w.id)} onMove={moveWork} focus={focus} />
           </section>
         ) : (
           <section className="surface area-board">
@@ -106,7 +106,7 @@ export function Project({ slug, tab }: { slug: string; tab: string | null }) {
         <div className="area-docs"><Docs d={d} initial={tab} /></div>
       </main>
 
-      <WorkSheet key={openId ?? "none"} slug={slug} w={open} ids={ids} inbox={d.inbox} pending={pending} refresh={() => refresh(true)}
+      <WorkSheet key={openId ?? "none"} slug={slug} w={open} shots={open ? d.shots?.[open.id] ?? [] : []} ids={ids} inbox={d.inbox} pending={pending} refresh={() => refresh(true)}
         onClose={() => setOpenId(null)} onMove={(w, to) => { setOpenId(null); moveWork(w, to); }} />
 
       <BottomSheet open={menu} onClose={() => setMenu(false)} title="프로젝트 단계">

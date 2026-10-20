@@ -37,6 +37,28 @@ NOT_BUILT = """<!doctype html><meta charset="utf-8"><title>킥오프</title>
 <p>터미널에서 아래를 한 번 실행한 뒤 새로고침해 주세요.</p>
 <pre style="background:#f2f4f6;padding:12px;border-radius:8px">npm --prefix {ui} install
 npm --prefix {ui} run build</pre></body>"""
+SHOT_TYPES = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp", ".gif": "image/gif"}
+WORK_ID = re.compile(r"^W-\d+$")
+
+
+def list_shots(task_dir):
+    """작업 폴더 shots/W-n/ 의 이미지를 작업별로 모은다. 파일 이름(확장자 뺀 것)이 캡션, 최신 순."""
+    root = task_dir / "shots"
+    out = {}
+    if not root.is_dir():
+        return out
+    for wdir in root.iterdir():
+        if not wdir.is_dir() or not WORK_ID.match(wdir.name):
+            continue
+        items = []
+        for f in wdir.iterdir():
+            if f.is_file() and f.suffix.lower() in SHOT_TYPES:
+                items.append({"file": f.name, "caption": f.stem, "mtime": int(f.stat().st_mtime)})
+        if items:
+            out[wdir.name] = sorted(items, key=lambda x: x["mtime"], reverse=True)
+    return out
+
+
 STAGES = check_brief.KICKOFF_STAGES | check_brief.USER_STAGES
 WORK_STAGES = {check_brief.WORK_AUTO, *check_brief.WORK_USER_STAGES}
 REPLY_DECISIONS = {"반영", "추가 질문", "빼기"}
@@ -284,8 +306,20 @@ class Handler(BaseHTTPRequestHandler):
                 "cards": read_json(d / "cards.json", None),
                 "inbox": read_json(d / "inbox.json", None),
                 "questions_md": qfile.read_text(encoding="utf-8") if qfile.is_file() else None,
+                "shots": list_shots(d),
                 "updated": int((d / "brief.md").stat().st_mtime),
             })
+            return
+        m = re.match(r"^/api/task/([^/]+)/shots/([^/]+)/([^/]+)$", path)
+        if m:
+            d = self.task_dir(m.group(1))
+            wid = urllib.parse.unquote(m.group(2))
+            name = urllib.parse.unquote(m.group(3))
+            target = (d / "shots" / wid / name) if d and WORK_ID.match(wid) else None
+            if not target or "/" in name or name.startswith(".") or target.suffix.lower() not in SHOT_TYPES or not target.is_file():
+                self.send_json({"error": "없는 이미지"}, 404)
+                return
+            self.send_bytes(target.read_bytes(), SHOT_TYPES[target.suffix.lower()])
             return
         self.send_json({"error": "없는 주소"}, 404)
 
