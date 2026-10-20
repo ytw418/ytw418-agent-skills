@@ -79,7 +79,7 @@ export function Project({ slug, tab }: { slug: string; tab: string | null }) {
               {c.kind && <Badge>{c.kind}</Badge>}
               {/^[A-Z][A-Z0-9]+-\d+$/.test(jira) && <Badge>{jira}</Badge>}
               {c.blocking.length > 0 && <Badge tone="red">막힘 {c.blocking.length}</Badge>}
-              {due && c.asked.length > 0 && <Badge tone={due.left <= 1 ? "red" : "yellow"}>{due.left > 0 ? `${due.left}일 뒤 기본값으로 진행` : due.left === 0 ? "오늘 기본값으로 진행" : `기본값 적용일(${due.label}) 지남`}</Badge>}
+              {due && c.asked.length > 0 && <Badge tone={due.left <= 0 ? "red" : due.left <= 1 ? "yellow" : "grey"}>{due.left > 0 ? `확인 희망일 ${due.label} · ${due.left}일 남음` : due.left === 0 ? `오늘이 확인 희망일이에요` : `확인 희망일 ${due.label}이 지났어요`}</Badge>}
             </div>
             {waits.length > 0 && <div className="h-waits">{waits.map((w) => <span key={w.owner} className={w.days != null && w.days >= 3 ? "late" : ""}>{waitText(w)}</span>)}</div>}
             {c.early_start && c.blocking.length > 0 && <div className="early">답을 기다리는 동안 먼저 해도 돼요 — <Inline text={c.early_start} /></div>}

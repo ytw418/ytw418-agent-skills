@@ -58,9 +58,9 @@ export function longestWait(waiting: Waiting[]) {
   return all[0] ?? null;
 }
 
-/** 질문지 머리말의 'M/D까지'를 찾아 남은 날을 센다(없으면 null) */
+/** 질문지 '내부용' 절의 '확인 희망일: M/D'(예전 형식은 'M/D까지')로 남은 날을 센다(없으면 null) */
 export function deadlineOf(questionsMd: string | null, today = new Date()) {
-  const m = questionsMd?.match(/(\d{1,2})\/(\d{1,2})\s*(?:\([^)]*\))?\s*까지/);
+  const m = questionsMd?.match(/확인 희망일:\s*(\d{1,2})\/(\d{1,2})/) ?? questionsMd?.match(/(\d{1,2})\/(\d{1,2})\s*(?:\([^)]*\))?\s*까지/);
   if (!m) return null;
   const due = new Date(today.getFullYear(), Number(m[1]) - 1, Number(m[2]));
   const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());

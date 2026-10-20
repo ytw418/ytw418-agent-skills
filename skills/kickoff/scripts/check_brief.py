@@ -364,9 +364,40 @@ def check_text(text, path="", today=None):
     }
 
 
+# 질문지(Slack 에 붙이는 글)에서 통보·지시로 들리는 말. references/slack-tone.md 참고
+TONE_BANNED = ["답이 없으면", "답이 없는", "회신이 없", "미응답", "간주", "회신 바랍니다", "주시기 바랍니다", "기본값으로 진행하겠", "진행합니다"]
+
+
+def check_questions(text):
+    """questions.md 의 담당자 절(내부용 제외)을 점검해 경고 목록을 돌려준다."""
+    warns = []
+    for part in re.split(r"\n(?=## )", text):
+        if not part.startswith("## ") or re.match(r"##\s*내부용", part):
+            continue
+        head, _, body = part.partition("\n")
+        who = head.lstrip("# ").strip()
+        for b in TONE_BANNED:
+            if b in body:
+                warns.append(f"질문지 '{who}': 통보처럼 들리는 말 '{b}' — references/slack-tone.md 대로 제안으로 바꾼다")
+        if re.search(r"(?<![A-Za-z0-9])[QWD]-\d+", body):
+            warns.append(f"질문지 '{who}': 본문에 내부 번호(Q-n·W-n·D-n)가 있다 — 내부용 절로 옮긴다")
+        if re.search(r"[OＯ○]{2}님|<[^>\n]{1,40}>|[가-힣](PM|PO|팀장|매니저)님|담당자님", head + body) or "이름 확인 후 보냄" in head:
+            warns.append(f"질문지 '{who}': 이름 자리 표시가 남아 있다 — 이름을 확인한 뒤 보낸다")
+        for phrase, limit in [("생각하고 있는데 괜찮을까요", 2), ("여쭤봐요", 3), ("것 같아", 3)]:
+            n = body.count(phrase)
+            if n > limit:
+                warns.append(f"질문지 '{who}': '{phrase}'가 {n}번 나온다 — {limit}번까지만 쓰고 표현을 바꾼다")
+    return warns
+
+
 def check(path, today=None):
     with open(path, encoding="utf-8") as f:
-        return check_text(f.read(), path, today)
+        result = check_text(f.read(), path, today)
+    qpath = os.path.join(os.path.dirname(os.path.abspath(path)), "questions.md")
+    if os.path.isfile(qpath):
+        with open(qpath, encoding="utf-8") as f:
+            result["warnings"] += check_questions(f.read())
+    return result
 
 
 def main():

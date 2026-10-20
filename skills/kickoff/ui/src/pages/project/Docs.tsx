@@ -62,6 +62,9 @@ function Questions({ md }: { md: string }) {
         if (!p.startsWith("## ")) return p.trim() ? <p key={i} className="muted" style={{ whiteSpace: "pre-wrap" }}>{p.trim()}</p> : null;
         const [head, ...rest] = p.split("\n");
         const body = rest.join("\n").trim();
+        if (/^##\s*내부용/.test(head)) {
+          return <details key={i} className="qsec internal"><summary className="muted">{head.replace(/^##\s*/, "")}</summary><div className="qs-body">{body}</div></details>;
+        }
         return (
           <div className="qsec" key={i}>
             <div className="qs-head">

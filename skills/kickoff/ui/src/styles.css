@@ -405,3 +405,5 @@ table.t td .short { white-space: nowrap; }
 .q-items .qi-rec { display: block; font-size: 13px; color: var(--blue-ink); margin-top: 2px; }
 .board > .col.empty { flex-basis: 88px; }
 .col .c-name { word-break: keep-all; }
+.qsec.internal { background: var(--ink-100); border-color: transparent; }
+.qsec.internal summary { cursor: pointer; font-size: 13.5px; }
