@@ -313,10 +313,21 @@ git push origin <current branch name>
 - 프로필 `~/.bhsn-chrome`, CDP `127.0.0.1:9224`. 켜기: `~/.local/bin/bhsn-chrome`(맥 로그인 때 자동, LaunchAgent `com.bhsn.automation-chrome`).
 - 붙기: 셸 `source ~/.local/bin/bhsn-pw.sh <사이트>; trap hpw_end EXIT` 뒤 `hpw <playwright-cli 명령…>`. 자기 탭을 열고 닫으며 같은 사이트는 잠금(`/tmp/bhsn-chrome-locks`)으로 차례대로 돈다. 다른 도구는 `--cdp http://127.0.0.1:9224` 로 붙는다. `tab-select`·탭 번호 금지.
 - 브리디 자동화 크롬(9222)과 섞지 않는다 — 회사 계정은 9224, 브리디·개인 운영 계정은 9222. 로그인(SSO·비밀번호)은 사용자가 직접 하고, 풀려 있으면 알리고 로그인 탭을 열어 둔다.
+- Slack 웹은 읽기만 한다. 글쓰기·답장·반응·캔버스 수정은 Slack MCP 도구로만 하고, 보낼 곳과 글을 사용자가 승인 카드로 고른 뒤에만 보낸다. Claude가 썼다는 흔적은 남기지 않는다(2026-10-20, 훅 `~/.claude/hooks/slack-send-guard.py`가 막는다. 브라우저로 쓰는 것은 훅이 못 막는다). 예외: 사용자 본인 DM(`U092LHJH732`)에 보내는 `slack_send_message`(입력 `channel_id`·`message`·`thread_ts`만)는 승인 없이 보낸다 — 아침 브리핑 등 자동 실행용(2026-10-21 사용자 요청).
 
 ## 11. 개인 할 일 목록 (2026-10-18, 사용자 결정)
 
 사용자가 **직접** 해야 하는 일(결제·본인 인증·개인정보·서명·사용자 결정·폰에서 할 일)을 남기면, 보고와 함께 `~/Desktop/pro/personal-todo/todo.md` '할 일' 절에 한 줄 추가한다(형식은 그 파일 머리말). 사용자가 "○○ 했어"라고 하면 해당 항목을 '완료' 절로 옮긴다. 목록을 고치면 `python3 -I ~/Desktop/pro/personal-todo/sync_notes.py ~/Desktop/pro/personal-todo/briefing.md` 로 애플 메모 '📋 개인 할 일'(사용자가 보는 곳)도 갱신한다. 매일 08:00 KST Paseo 일정 '개인 할 일 아침 브리핑'이 이 목록과 지난 세션을 훑어 브리핑한다(절차 `~/Desktop/pro/personal-todo/CLAUDE.md`). 회사·개인 저장소 모두 적용한다.
+
+## 12. 사용량 예산 (MANDATORY, 2026-10-21 사용자 결정)
+
+언니노트 기획 한 건에 주간 사용량 10% 이상을 썼다("너무 많이 쓴 거야"). **질문(명령) 하나에 주간 한도 5% 이하**로 쓴다(2026-10-21 사용자 "언니노트 기획 때의 절반까지" — 그 세션 약 10% 기준). 회사·개인 저장소 모두 적용한다.
+
+- **모델·사고 모드 권유**: 쉬운 작업(문구·설정 한 줄, 단순 조회, 정해진 절차 실행)이나 반복 작업이면 답변 첫 줄에 "이 작업은 `/model sonnet` 또는 `/effort low` 로 충분합니다"라고 알린다. 모델은 사용자가 바꾸는 것이라 알리고 그대로 진행한다.
+- **반복 작업은 스크립트로**: 이미 해 본 작업(같은 명령 묶음·같은 조회·같은 변환)을 또 하게 되면 스크립트로 만들어 쓰거나(작으면 바로 만든다), 크면 "스크립트로 바꾸자"고 제안한다. 여러 단계 절차는 스킬화(§7)도 함께 제안한다.
+- **큰 작업은 시작 전에 점검**: 기획·조사·여러 화면 구현처럼 5%를 넘길 것 같으면 시작 전에 범위·예상 사용량을 말하고 줄이는 방법(범위를 나눠 질문 여러 번, sonnet·low, 서브에이전트 haiku, 웹 검색 횟수 제한)을 제안해 고르게 한다.
+- **훅이 강제한다**: `~/.claude/hooks/usage-budget.py`(UserPromptSubmit·PreToolUse). 질문 시작 뒤 쓴 토큰(서브에이전트 포함)을 주간 % 로 환산해 예산의 2/3 근처에서 점검하라고 알리고, 5%를 넘으면 도구 호출을 막는다. 막히면 우회하지 말고 ① 한 것 ② 남은 일 ③ 줄일 방법을 보고하고 멈춘다. 사용자가 프롬프트에 `예산 N%`(예: `계속 예산 10%`)를 쓰면 그 질문만 예산이 N%다.
+- 환산 기준은 `~/.claude/hooks/usage-budget.json`(없으면 기본값: 1% = 가중 57만 토큰, 언니노트 기획 세션 기준)으로 고친다. 세션 재기: `python3 ~/.claude/hooks/usage-budget.py --measure <transcript.jsonl>`.
 
 ## 10. Quick Reference
 
@@ -332,4 +343,5 @@ If you are an AI coding assistant:
 - **Pre-commit gate** — 프로젝트에 `make style`/`make test` (또는 동등한 명령)이 있으면 커밋 전 실행을 권장한다.
 - **(회사 저장소) Prefix every commit message** with `[XX-XXXX]`.
 - **반복 가능한 작업** — 작업 완료 후 반복 가능성이 있으면 `/skill-creator`로 스킬화를 제안하고, 생성된 스킬은 반드시 커밋한다.
+- **사용량 예산** — 질문 하나 주간 5% 이하. 쉬운·반복 작업은 sonnet·`/effort low` 권유, 반복은 스크립트화, 훅이 넘으면 막는다(§12).
 - **모델 분업** — 기본 Opus. 버그 수정은 Opus가 하고 판단이 막히면 그 판단만 Fable에(결과를 기다린다), Fable 설계 위임은 구현이 큰 기능 작업에만(결과를 기다린다). 파일 3개 이상 훑기는 `Explore`(haiku/sonnet). 서브에이전트 `model`은 항상 명시한다.
