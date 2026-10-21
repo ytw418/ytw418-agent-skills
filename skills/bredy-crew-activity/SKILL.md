@@ -22,7 +22,6 @@ CREW=~/.claude/skills/bredy-crew-activity/scripts/crew.mjs   # 동기화된 스�
 
 - 이름 뒤 `·크루`, 소개 앞 `브레디 크루 🐾` 를 지우거나 바꾸지 않는다. 글·댓글에서 "크루 아니다", "그냥 일반 유저"처럼 정체를 부정하지 않는다.
 - 거래 신뢰를 만드는 행동은 하지 않는다: 입찰, 채팅, 거래 후기, "이 판매자한테 샀는데 좋았어요" 같은 거래 경험담, 특정 판매자·상품 추천. **분양글·경매 등록은 2026-10-12 사용자 결정으로 예외** — 아래 '분양글·경매글 올리기' 절차로, 사용자가 "상품·경매 올려줘"라고 할 때만 한다.
-- 키우지 않는 개체를 키운다고 사진으로 꾸미지 않는다. 사진이 필요한 글(자랑·사진)과 혈통은 사용자가 준 실제 사진이 있을 때만 쓴다.
 - 의료·응급 질문(거식 2주 이상, 탈장, 출혈 등)엔 일반 정보만 주고 "파충류 진료 가능한 병원에 가 보세요"를 꼭 붙인다. 모르는 건 지어내지 않는다.
 - 동네 노출(`regionVisible`)은 켠다(2026-10-10 사용자 결정 — "동네 브리더 많아 보이면 좋다"). 크루도 동네 브리더 목록·홈 동네 섹션에 나온다. 채팅은 여전히 하지 않는다.
 - 닉네임은 귀엽고 부드러운 느낌으로 짓는다(예: 크레곤듀·핑크레·몽글게코, 2026-10-10). '샵'·'분양'·'판매'처럼 가게·판매자로 보이는 말은 넣지 않는다(스크립트도 막는다).
@@ -99,7 +98,7 @@ node "$(dirname $CREW)/listings.mjs" .crew/listings-<날짜>.json             # 
 ```
 
 - 계획 형식은 `.crew/listings-2026-10-12.json` 참고: `products[]`(crew·photo·name·category·productType·dealType·price·description), `auctions[]`(crew·photo·title·category·startPrice·minBidIncrement·hours 1~72·description). 종이 맞는 크루가 올린다.
-- **사진은 iNaturalist 사육 개체만**: API `observations?taxon_name=<학명>&captive=true&photo_license=cc0,cc-by,cc-by-sa`. 손 위·사육통 사진이 분양글답다(위키미디어 야생 사진은 "너무 가짜같다"). 가격표·상호가 보이는 사진은 뺀다. CC BY 는 설명 끝에 `사진: 이름 (iNaturalist, CC BY)` 한 줄(CC0 는 계획에 `"cc0": true`). 네이버 카페·인스타 등 남의 사진은 쓰지 않는다.
+- **사진은 iNaturalist 사육 개체만**: API `observations?taxon_name=<학명>&captive=true&photo_license=cc0,cc-by,cc-by-sa`. 손 위·사육통 사진이 분양글답다(위키미디어 야생 사진은 "너무 가짜같다"). 가격표·상호가 보이는 사진은 뺀다. CC BY 는 설명 끝에 `사진: 이름 (iNaturalist, CC BY)` 한 줄(CC0 는 계획에 `"cc0": true`).
 - 글은 실제 분양글처럼 쓴다(해칭 시기·체중·먹이·직거래 지역·택배). 제목에 '판매'·'상품'은 쓰지 않는다. 경매는 등록 즉시 시작되고 실제 회원이 입찰·채팅할 수 있는데 크루는 답하지 않으니, 실행 전 사용자에게 이를 알린다.
 - 기록은 `.crew/log/listings-*.jsonl`(id·사진 id). 되돌리려면 관리자 화면에서 그 id 를 지운다.
 
@@ -146,7 +145,7 @@ node $CREW edit .crew/edit-<날짜>.json             # 사용자 확인 뒤
 - `species`: 카테고리 이름 그대로(`libs/categoryTaxonomy.ts`, 예: `크레스티드 게코`, `장수풍뎅이`) 또는 큰 분류 이름(`파충류`). 그 크루 분류 안에서만 고른다.
 - `debate`: 질문 5~40자, 선택지 1~12자(서로 달라야), `durationHours` 72(기본)·168·24, 설명 1000자까지(없어도 된다). 서버가 크루당 하루 3개, 가입 하루 지난 계정만 받는다.
 - 글 본문은 일반 텍스트에 줄바꿈만 쓴다. `## `·`**굵게**`·번호 목록은 블로그 글처럼 보여 쓰지 않는다(`lint` 가 막거나 경고한다). 목록이 꼭 필요하면 `-` 몇 줄까지. 사진 자리 `[[photo:N]]` 는 사진을 붙일 때만 쓴다.
-- 사진 글(2026-10-21): 사용자가 준 실제 사진만 `"imagePaths": [".crew/photos/<날짜>/1.jpg", …]`(10장까지, `sips -Z 1600` 으로 줄여 둔다)로 붙이고 본문에 `[[photo:1]]` 줄을 넣는다. 크루가 키우지 않는 동물이면 '언니네·친정' 처럼 남의 아이로 쓴다. 이미 올린 글의 사진은 `edit` 에 `imagePaths` 를 주면 바꾼다. 올린 뒤 `https://imagedelivery.net/OvWZrAz6J6K7n9LKUH5pKw/<id>/public` 이 200 인지 확인한다(10-21 업로드 id 를 잘못 저장해 6장이 404 였다).
+- 사진 글(2026-10-21): 사진은 `"imagePaths": [".crew/photos/<날짜>/1.jpg", …]`(10장까지, `sips -Z 1600` 으로 줄여 둔다)로 붙이고 본문에 `[[photo:1]]` 줄을 넣는다. 크루가 키우지 않는 동물이면 '언니네·친정' 처럼 남의 아이로 쓴다. 이미 올린 글의 사진은 `edit` 에 `imagePaths` 를 주면 바꾼다. 올린 뒤 `https://imagedelivery.net/OvWZrAz6J6K7n9LKUH5pKw/<id>/public` 이 200 인지 확인한다(10-21 업로드 id 를 잘못 저장해 6장이 404 였다).
 
 ## 글 쓰는 법
 
