@@ -14,8 +14,11 @@ import sys
 SECTIONS = ["0.", "1.", "2.", "3.", "4.", "5.", "6.", "7.", "8.", "9."]
 TYPES = {"누락", "모순", "모호", "위험"}
 IMPACTS = {"막힘", "중요", "사소"}
-STATES = {"열림", "추천(확인 전)", "질문함", "답 옴", "정함", "범위 밖"}
+# 보낼 질문: 질문지에 넣었지만 아직 안 보냄. 질문함: 실제로 보냄(사용자 승인 뒤).
+# 기다림: 따로 묻지 않아도 되는 대기(담당자가 하기로 함·다른 사람이 이미 물음).
+STATES = {"열림", "추천(확인 전)", "보낼 질문", "질문함", "기다림", "답 옴", "정함", "범위 밖"}
 CLOSED = {"정함", "범위 밖"}
+WAIT_STATES = {"질문함", "기다림"}  # 담당자 쪽 차례. 답 대기로 센다
 DECISION_STATES = {"확정", "제안"}
 # 작업 단계. 앞의 셋은 check 판정으로 정하고, 뒤의 넷은 사용자가 정한다.
 KICKOFF_STAGES = {"검토 중", "질문 대기", "착수 가능"}
@@ -114,6 +117,32 @@ def owner_roles(text):
     return [re.sub(r"\(.*?\)", "", o).strip() for o in (text or "?").split("+") if o.strip()] or ["?"]
 
 
+# 기다림 답 칸이 '다른 사람이 이미 물어봄'인지('하기로 함'이 아니라). 화면도 이 값(waiting[].others_asked)을 쓴다
+ASKED_BY_OTHER = re.compile(r"물어\s?(봄|봤|보는)|이미 물|이미 문의")
+PROMISE = re.compile(r"기로\s?(함|했|하셨)")
+
+
+def others_asked(answer):
+    a = answer or ""
+    return bool(ASKED_BY_OTHER.search(a)) and not PROMISE.search(a)
+
+
+def answer_who(answer):
+    """'질문함 — ○○, 2026-10-17, slack:…' → '○○, '. 상태 말과 날짜 사이(누구에게·누가)."""
+    a = answer or ""
+    return DATE.split(a.split("—", 1)[1] if "—" in a else a)[0]
+
+
+def wait_roles(q, people):
+    """답 대기를 셀 역할. 결정 주체가 둘 이상이면 답 칸에 적힌 사람·역할 쪽만 센다(못 찾으면 모두)."""
+    roles = owner_roles(q.get("결정 주체"))
+    if len(roles) < 2:
+        return roles
+    who = answer_who(q.get("답"))
+    hit = [r for r in roles if r in who or any(n in who for n, role in people.items() if role == r)]
+    return hit or roles
+
+
 def is_placeholder(v):
     return bool(re.fullmatch(r"<[^>]*>", v.strip()))
 
@@ -193,7 +222,9 @@ def check_text(text, path="", today=None):
         if q.get("상태") == "추천(확인 전)" and not q.get("추천"):
             errors.append(f"{qid} 상태가 추천(확인 전)인데 추천이 비었다")
         if q.get("상태") == "질문함" and not first_date(q.get("답")):
-            warnings.append(f"{qid} 질문함인데 답 칸에 질문한 날짜(YYYY-MM-DD)가 없다")
+            warnings.append(f"{qid} 질문함인데 답 칸에 보낸 날짜(YYYY-MM-DD)가 없다")
+        if q.get("상태") == "기다림" and not first_date(q.get("답")):
+            warnings.append(f"{qid} 기다림인데 답 칸에 날짜(YYYY-MM-DD)가 없다")
 
     proposals, decisions = [], parse_table(sections.get("6.", []))
     for d in decisions:
@@ -218,6 +249,8 @@ def check_text(text, path="", today=None):
     # 영향 칸이 깨진 Q 는 막힘으로 본다(형식 오류 때문에 착수 가능이 되지 않게)
     blocking = [q.get("ID") for q in qs if q.get("영향") not in {"중요", "사소"} and q.get("상태") not in CLOSED]
     asked = [q.get("ID") for q in qs if q.get("상태") == "질문함"]
+    to_send = [q.get("ID") for q in qs if q.get("상태") == "보낼 질문"]
+    promised = [q.get("ID") for q in qs if q.get("상태") == "기다림"]
     replied = [q.get("ID") for q in qs if q.get("상태") == "답 옴"]
     defaults = [q.get("ID") for q in qs if q.get("상태") == "추천(확인 전)"]
     opened = [q.get("ID") for q in qs if q.get("상태") == "열림"]
@@ -229,25 +262,36 @@ def check_text(text, path="", today=None):
         if d.get("상태") != "제안":
             continue
         related = QREF.findall(d.get("관련 Q", ""))
-        if related and not any(qmap.get(r, {}).get("상태") in {"질문함", "답 옴", "열림"} for r in related):
-            warnings.append(f"{d.get('ID')}가 제안인데 관련 Q({', '.join(related)})가 모두 닫혔다 — 담당자 동의를 묻는 Q를 질문함으로 둔다")
+        if related and not any(qmap.get(r, {}).get("상태") in {"보낼 질문", "질문함", "기다림", "답 옴", "열림"} for r in related):
+            warnings.append(f"{d.get('ID')}가 제안인데 관련 Q({', '.join(related)})가 모두 닫혔다 — 담당자 동의를 묻는 Q를 보낼 질문으로 둔다")
 
-    # 담당자별 답 대기: 질문한 날짜가 가장 오래된 것 기준으로 며칠째인지
+    # 담당자별 답 대기(질문함·기다림): 날짜가 가장 오래된 것 기준으로 며칠째인지. 보낼 질문은 아직 안 보냈으니 세지 않는다
+    people = {}  # 결정 주체 '기획(○○)' 에서 이름 → 역할
+    for q in qs:
+        for part in (q.get("결정 주체") or "").split("+"):
+            m = re.match(r"\s*([^()]+?)\s*\(([^)]+)\)", part)
+            if m:
+                people[re.sub(r"님$", "", m.group(2).strip())] = m.group(1).strip()
     waiting = {}
     for q in qs:
-        if q.get("상태") != "질문함":
+        if q.get("상태") not in WAIT_STATES:
             continue
         d = first_date(q.get("답"))
-        # '기획+디자인'처럼 함께 정할 항목은 각 담당자 쪽에 모두 센다
-        for owner in owner_roles(q.get("결정 주체")):
-            w = waiting.setdefault(owner, {"owner": owner, "ids": [], "oldest": None})
+        # '기획+디자인'처럼 함께 정할 항목은 답 칸에 적힌 담당자 쪽에만, 못 찾으면 각 담당자 쪽에 모두 센다
+        for owner in wait_roles(q, people):
+            w = waiting.setdefault(owner, {"owner": owner, "ids": [], "promised": [], "others_asked": [], "oldest": None})
             w["ids"].append(q.get("ID"))
+            if q.get("상태") == "기다림":
+                w["promised"].append(q.get("ID"))
+                if others_asked(q.get("답")):
+                    w["others_asked"].append(q.get("ID"))
             if d and (w["oldest"] is None or d < w["oldest"]):
                 w["oldest"] = d
     waiting_list = []
     for w in waiting.values():
         days = (today - w["oldest"]).days if w["oldest"] else None
-        waiting_list.append({"owner": w["owner"], "ids": w["ids"], "since": w["oldest"].isoformat() if w["oldest"] else None, "days": days})
+        waiting_list.append({"owner": w["owner"], "ids": w["ids"], "promised": w["promised"], "others_asked": w["others_asked"],
+                             "since": w["oldest"].isoformat() if w["oldest"] else None, "days": days})
 
     # 7장 작업 목록: 작업마다 지금 단계를 계산한다
     ids = {r.get("ID") for r in reqs} | {q.get("ID") for q in qs} | {d.get("ID") for d in decisions}
@@ -282,14 +326,19 @@ def check_text(text, path="", today=None):
         rq = [qmap[r] for r in related if r in qmap]
         before = [r for r in related if r.startswith("W-") and r != wid and r in rows_by_id and own_stage(rows_by_id[r]) not in {"완료", "취소"}]
         ids_of = lambda st: ", ".join(q["ID"] for q in rq if q.get("상태") == st)
+        unknown = [q["ID"] for q in rq if q.get("상태") not in STATES]
         if set_stage in WORK_USER_STAGES:
             stage, why = set_stage, "사용자가 정함"
         elif missing:
             stage, why = "검토 중", "문서에 없는 ID: " + ", ".join(missing)
+        elif unknown:  # 상태 오타가 '착수 가능'으로 보이지 않게
+            stage, why = "검토 중", "상태 확인 필요: " + ", ".join(unknown)
         elif any(q.get("상태") == "답 옴" for q in rq):
             stage, why = "결정 필요", "답 옴: " + ids_of("답 옴")
-        elif any(q.get("상태") == "질문함" for q in rq):
-            stage, why = "질문 대기", "질문함: " + ids_of("질문함")
+        elif any(q.get("상태") == "보낼 질문" for q in rq):
+            stage, why = "검토 중", "아직 안 보낸 질문: " + ids_of("보낼 질문")
+        elif any(q.get("상태") in WAIT_STATES for q in rq):
+            stage, why = "질문 대기", " · ".join(f"{st}: {ids_of(st)}" for st in ("질문함", "기다림") if ids_of(st))
         elif any(q.get("상태") == "열림" for q in rq):
             stage, why = "검토 중", "아직 분류 안 됨: " + ids_of("열림")
         elif before:
@@ -298,7 +347,7 @@ def check_text(text, path="", today=None):
             stage, why = "착수 가능", "기본값으로 진행: " + ids_of("추천(확인 전)")
         else:
             stage, why = "착수 가능", "관련 질문이 모두 정해짐" if rq else "관련 질문 없음"
-        waits = [first_date(q.get("답")) for q in rq if q.get("상태") == "질문함"]
+        waits = [first_date(q.get("답")) for q in rq if q.get("상태") in WAIT_STATES]
         waits = [d for d in waits if d]
         work.append({
             "id": wid, "title": w.get("작업", ""), "related": related, "owner": w.get("담당", ""),
@@ -320,8 +369,10 @@ def check_text(text, path="", today=None):
     if work:
         early = (", ".join(ready) + " 은 바로 시작할 수 있다") if ready else ""
 
-    important_asked = [q.get("ID") for q in qs if q.get("영향") == "중요" and q.get("상태") == "질문함"]
-    verdict = "착수 가능" if not blocking else "질문 대기"
+    important_asked = [q.get("ID") for q in qs if q.get("영향") == "중요" and q.get("상태") in WAIT_STATES]
+    # 막힘 중 아직 안 보낸 질문이나 분류 안 된 것(상태 오타 포함)이 있으면 대기가 아니라 검토 중이다
+    unsent = [q.get("ID") for q in qs if q.get("ID") in blocking and (q.get("상태") in {"보낼 질문", "열림"} or q.get("상태") not in STATES)]
+    verdict = "착수 가능" if not blocking else "검토 중" if unsent else "질문 대기"
 
     if path:
         folder = os.path.basename(os.path.dirname(os.path.normpath(path)))
@@ -332,8 +383,12 @@ def check_text(text, path="", today=None):
     stage_key = next((s for s in KICKOFF_STAGES | USER_STAGES if stage.startswith(s)), "")
     if not stage_key:
         errors.append(f"0장 상태가 {sorted(KICKOFF_STAGES | USER_STAGES)} 중 하나로 시작하지 않는다: '{stage}'")
-    elif stage_key in {"질문 대기", "착수 가능"} and stage_key != verdict:
-        warnings.append(f"0장 상태가 판정과 다르다: 상태 '{stage}', 판정 '{verdict}'")
+    elif stage_key in KICKOFF_STAGES and stage_key != verdict:
+        # 질문을 보내 판정이 '질문 대기'로 바뀌었는데 0장이 '검토 중'에 남는 경우도 잡는다
+        hint = (f" — 막힘 중 보낼 질문·열림(상태 오류 포함): {', '.join(unsent)}" if verdict == "검토 중"
+                else f" — 0장을 '질문 대기 (막힘 {', '.join(blocking)})'로 바꾼다" if verdict == "질문 대기"
+                else " — 0장을 '착수 가능'으로 바꾼다")
+        warnings.append(f"0장 상태가 판정과 다르다: 상태 '{stage}', 판정 '{verdict}'{hint}")
     elif stage_key == "질문 대기":
         listed = re.search(r"\(막힘\s*([^)]*)\)", stage)
         if listed and sorted(re.findall(r"Q-\d+", listed.group(1))) != sorted(blocking):
@@ -351,6 +406,8 @@ def check_text(text, path="", today=None):
         "verdict": verdict,
         "blocking": blocking,
         "asked": asked,
+        "to_send": to_send,
+        "promised": promised,
         "replied": replied,
         "waiting": waiting_list,
         "defaults": defaults,
@@ -420,9 +477,14 @@ def main():
             print(f"  막힘(미해결): {', '.join(result['blocking'])}")
         if result["replied"]:
             print(f"  답 옴 — 사용자 결정 필요: {', '.join(result['replied'])}")
+        if result["to_send"]:
+            print(f"  보낼 질문(아직 안 보냄) — 확인하고 보내기: {', '.join(result['to_send'])}")
         for w in result["waiting"]:
             since = f", {w['since']}부터 {w['days']}일째" if w["since"] else ""
-            print(f"  {w['owner']} 답 대기: {', '.join(w['ids'])}{since}")
+            kinds = [("하기로 함", [i for i in w["promised"] if i not in w["others_asked"]]), ("이미 물어봄", w["others_asked"])]
+            kinds = " · ".join(f"{k}: {', '.join(v)}" for k, v in kinds if v)
+            promised = f" ({kinds})" if kinds else ""
+            print(f"  {w['owner']} 답 대기: {', '.join(w['ids'])}{promised}{since}")
         if result["defaults"]:
             print(f"  추천(확인 전) 기본값으로 진행: {', '.join(result['defaults'])}")
         if result["important_asked"]:

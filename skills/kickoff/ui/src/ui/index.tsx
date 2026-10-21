@@ -70,8 +70,17 @@ export function SegmentedControl<T extends string>({ items, value, onChange, lab
 }
 
 export function Tabs<T extends string>({ items, value, onChange }: { items: { value: T; label: string; count?: number }[]; value: T; onChange: (v: T) => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  // 좁은 화면에서 고른 탭이 가로로 넘친 자리에 있으면 탭 줄만 옆으로 밀어 보이게 한다(페이지는 움직이지 않는다)
+  useEffect(() => {
+    const box = ref.current, on = box?.querySelector<HTMLElement>('[aria-selected="true"]');
+    if (!box || !on) return;
+    const b = box.getBoundingClientRect(), o = on.getBoundingClientRect();
+    if (o.left < b.left) box.scrollLeft += o.left - b.left - 16;
+    else if (o.right > b.right) box.scrollLeft += o.right - b.right + 16;
+  }, [value]);
   return (
-    <div className="tabs" role="tablist">
+    <div className="tabs" role="tablist" ref={ref}>
       {items.map((it) => (
         <button key={it.value} role="tab" aria-selected={value === it.value} className={value === it.value ? "on" : ""} onClick={() => onChange(it.value)}>
           {it.label}{it.count ? <span className="count">{it.count}</span> : null}

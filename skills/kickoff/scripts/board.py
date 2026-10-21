@@ -17,8 +17,10 @@ _spec = importlib.util.spec_from_file_location("check_brief", Path(__file__).wit
 check_brief = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(check_brief)
 
-# 보드 열. 사용자가 지금 답하거나 결정할 것이 있으면 단계와 상관없이 '결정 필요'로 올린다.
+# 보드 열. 사용자가 지금 답하거나 결정하거나 보낼 것이 있으면 단계와 상관없이 '결정 필요'로 올린다.
 COLUMNS = ["결정 필요", "검토 중", "질문 대기", "착수 가능", "진행 중", "보류", "완료", "취소"]
+# 멈췄거나 끝난 프로젝트는 보낼 질문이 남아도 사용자 차례로 올리지 않는다(화면 stages.ts toSendOf 와 같다)
+QUIET_STAGES = {"보류", "완료", "취소"}
 SLUG = re.compile(r"[\w.-]+")
 JIRA_KEY = re.compile(r"[A-Z][A-Z0-9]+-\d+")
 
@@ -48,7 +50,8 @@ def task_state(d):
         r = check_brief.check(str(d / "brief.md"))
     except (OSError, UnicodeDecodeError) as e:
         r = {"title": d.name, "task_id": "", "kind": "", "stage": "검토 중", "stage_text": "", "errors": [f"brief.md 를 읽지 못했다: {e}"],
-             "warnings": [], "verdict": "질문 대기", "blocking": [], "asked": [], "replied": [], "waiting": [], "defaults": [],
+             "warnings": [], "verdict": "질문 대기", "blocking": [], "asked": [], "to_send": [], "promised": [],
+             "replied": [], "waiting": [], "defaults": [],
              "important_asked": [], "proposals": [], "early_start": "", "counts": {},
              "work": [], "work_counts": {}, "progress": {"done": 0, "total": 0}}
     inbox = read_json(d / "inbox.json") if (d / "inbox.json").exists() else None
@@ -78,6 +81,9 @@ def task_state(d):
 def column_of(t):
     if t["cards_open"] or t["replies_open"]:
         return "결정 필요"
+    # 아직 안 보낸 질문은 사용자가 확인하고 보낼 차례다(보류·완료·취소한 프로젝트는 빼고)
+    if t.get("to_send") and t["stage"] not in QUIET_STAGES:
+        return "결정 필요"
     return t["stage"] if t["stage"] in COLUMNS else "검토 중"
 
 
@@ -98,8 +104,11 @@ def next_action(t):
         return f"질문 카드 {t['cards_open']}장 답하기" + (" · 고르다 만 답 있음" if t["inbox_draft"] else "")
     if t["replies_open"]:
         return f"받은 답 보고 결정: {', '.join(t['replies_open'])}"
+    # 고른 카드 답에 따라 보낼 질문이 바뀔 수 있어 제출을 먼저 안내한다
     if t["inbox_draft"]:
         return "화면에서 고른 답 제출하기"
+    if t.get("to_send") and t["stage"] not in QUIET_STAGES:
+        return f"보낼 질문 {len(t['to_send'])}개 — 확인하고 보내기"
     if t["inbox_pending"]:
         return "제출함 · 에이전트 반영 기다림"
     if t["column"] == "질문 대기":
@@ -112,16 +121,24 @@ def next_action(t):
 
 
 def waiting_text(t):
+    """질문함: '기획 2건 3일째'. 기다림(하기로 함): '백엔드 — 하기로 함 0일째'. 섞이면 '기획 3건(하기로 함 1건) 3일째'.
+    다른 사람이 이미 물어 기다리는 것(others_asked)은 질문처럼 '건'으로 센다."""
     merged = {}
     for w in t["waiting"]:
-        m = merged.setdefault(w["owner"], {"n": 0, "days": None})
+        m = merged.setdefault(w["owner"], {"n": 0, "promised": 0, "days": None})
         m["n"] += len(w["ids"])
+        m["promised"] += len(w.get("promised") or []) - len(w.get("others_asked") or [])
         if w["days"] is not None:
             m["days"] = max(m["days"] or 0, w["days"])
     parts = []
     for owner, m in merged.items():
+        if m["promised"] and m["promised"] == m["n"]:
+            count = f" {m['n']}건" if m["n"] > 1 else ""
+            parts.append(f"{owner} — 하기로 함{count}" + ("" if m["days"] is None else f" {m['days']}일째"))
+            continue
         when = "" if m["days"] is None else (" 오늘" if m["days"] == 0 else f" {m['days']}일째")
-        parts.append(f"{owner} {m['n']}건{when}")
+        mixed = f"(하기로 함 {m['promised']}건)" if m["promised"] else ""
+        parts.append(f"{owner} {m['n']}건{mixed}{when}")
     return ", ".join(parts)
 
 

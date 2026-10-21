@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { api, type WorkItem, type WorkStage } from "../../lib/api";
 import { useMedia, usePoll } from "../../lib/hooks";
 import { Inline } from "../../lib/md";
-import { deadlineOf, detailNext, indexIds, waitText, waitingByRole } from "../../lib/stages";
+import { SEND_HOW, deadlineOf, detailNext, indexIds, othersAskedOf, toSendOf, waitText, waitingByRole } from "../../lib/stages";
 import { Badge, BottomSheet, Button, Check, ListRow, MoreIcon, ProgressRing, Result, SkeletonRows, useOverlay } from "../../ui";
 import { AppBar } from "../AppBar";
 import { Board } from "./Board";
@@ -46,10 +46,12 @@ export function Project({ slug, tab }: { slug: string; tab: string | null }) {
   const open = c.work.find((w) => w.id === openId) ?? null;
   const submitted = !!d.inbox?.submitted;
   const pending = new Set(submitted ? Object.keys(d.inbox?.replies ?? {}) : []);
+  const othersAsked = othersAskedOf(c.waiting);
   const decideTotal = (d.cards?.cards.length ?? 0) + c.replied.length;
   const sidePanel = decideTotal > 0 && !submitted;
   const due = deadlineOf(d.questions_md);
   const decided = ["진행 중", "보류", "완료", "취소"].includes(c.stage);
+  const unsent = toSendOf(c).length;
 
   const moveWork = async (w: WorkItem, to: string) => {
     try {
@@ -79,8 +81,10 @@ export function Project({ slug, tab }: { slug: string; tab: string | null }) {
               {c.kind && <Badge>{c.kind}</Badge>}
               {/^[A-Z][A-Z0-9]+-\d+$/.test(jira) && <Badge>{jira}</Badge>}
               {c.blocking.length > 0 && <Badge tone="red">막힘 {c.blocking.length}</Badge>}
+              {unsent > 0 && <Badge tone="orange">보낼 질문 {unsent}</Badge>}
               {due && c.asked.length > 0 && <Badge tone={due.left <= 0 ? "red" : due.left <= 1 ? "yellow" : "grey"}>{due.left > 0 ? `확인 희망일 ${due.label} · ${due.left}일 남음` : due.left === 0 ? `오늘이 확인 희망일이에요` : `확인 희망일 ${due.label}이 지났어요`}</Badge>}
             </div>
+            {unsent > 0 && <div className="send-note" style={{ marginTop: 14 }}>{SEND_HOW}</div>}
             {waits.length > 0 && <div className="h-waits">{waits.map((w) => <span key={w.owner} className={w.days != null && w.days >= 3 ? "late" : ""}>{waitText(w)}</span>)}</div>}
             {c.early_start && c.blocking.length > 0 && <div className="early">답을 기다리는 동안 먼저 해도 돼요 — <Inline text={c.early_start} /></div>}
           </div>
@@ -95,7 +99,7 @@ export function Project({ slug, tab }: { slug: string; tab: string | null }) {
         {c.work.length > 0 ? (
           <section className="surface area-board">
             <Flow work={c.work} pending={pending} onPick={(s) => setFocus({ stage: s, at: performance.now() })} />
-            <Board work={c.work} shots={d.shots ?? {}} pending={pending} onOpen={(w) => setOpenId(w.id)} onMove={moveWork} focus={focus} />
+            <Board work={c.work} shots={d.shots ?? {}} pending={pending} othersAsked={othersAsked} onOpen={(w) => setOpenId(w.id)} onMove={moveWork} focus={focus} />
           </section>
         ) : (
           <section className="surface area-board">
@@ -106,7 +110,7 @@ export function Project({ slug, tab }: { slug: string; tab: string | null }) {
         <div className="area-docs"><Docs d={d} initial={tab} /></div>
       </main>
 
-      <WorkSheet key={openId ?? "none"} slug={slug} w={open} shots={open ? d.shots?.[open.id] ?? [] : []} ids={ids} inbox={d.inbox} pending={pending} refresh={() => refresh(true)}
+      <WorkSheet key={openId ?? "none"} slug={slug} w={open} shots={open ? d.shots?.[open.id] ?? [] : []} ids={ids} othersAsked={othersAsked} inbox={d.inbox} pending={pending} refresh={() => refresh(true)}
         onClose={() => setOpenId(null)} onMove={(w, to) => { setOpenId(null); moveWork(w, to); }} />
 
       <BottomSheet open={menu} onClose={() => setMenu(false)} title="프로젝트 단계">

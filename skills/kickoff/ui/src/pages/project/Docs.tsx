@@ -2,12 +2,8 @@ import { useEffect, useState } from "react";
 import { useMedia } from "../../lib/hooks";
 import type { Section, TaskDetail } from "../../lib/api";
 import { Inline, Table, TextLines } from "../../lib/md";
-import { roles } from "../../lib/stages";
+import { Q_STATES, Q_STATUS_TONE as STATUS_TONE, SEND_HOW, roles, toSendOf } from "../../lib/stages";
 import { Badge, Button, ListRow, Tabs, useOverlay } from "../../ui";
-
-const STATUS_TONE: Record<string, "grey" | "blue" | "orange" | "green" | "yellow"> = {
-  "질문함": "blue", "답 옴": "orange", "정함": "green", "추천(확인 전)": "yellow", "열림": "grey", "범위 밖": "grey",
-};
 
 type TabKey = "요약" | "요구사항" | "화면 상태" | "검토 항목" | "설계" | "수용 기준" | "질문지" | "기록";
 const TAB_SECTIONS: Record<Exclude<TabKey, "질문지">, number[]> = {
@@ -33,6 +29,7 @@ function SectionView({ sec, filter, narrow }: { sec: Section; filter?: { state: 
       rows = rows.filter((r) => (filter.state === "전체" || r[idx("상태")] === filter.state) && (filter.owner === "전체" || roles(r[idx("결정 주체")] ?? "").includes(filter.owner)));
     }
     const shaped = rows.map((r) => header.map((h) => r[idx(h)] ?? ""));
+    if (filter && !shaped.length && (b.rows ?? []).length) return <p key={i} className="muted">고른 조건에 맞는 항목이 없어요</p>;
     if (narrow && header.length > 2) {
       // 좁은 화면에서는 표 대신 행마다 한 줄씩: 가장 긴 칸을 제목으로, 짧은 칸은 배지로
       const main = header.reduce((best, h, j) => (SHORT.has(h) || j === 0 ? best : (shaped.reduce((n, r) => n + (r[j]?.length ?? 0), 0) > shaped.reduce((n, r) => n + (r[best]?.length ?? 0), 0) ? j : best)), header.length > 1 ? 1 : 0);
@@ -53,11 +50,28 @@ function SectionView({ sec, filter, narrow }: { sec: Section; filter?: { state: 
   return <><h3>{sec.title}</h3>{body}</>;
 }
 
-function Questions({ md }: { md: string }) {
+/** 내부용 절에서 역할별 보낸 날('- 보냄: 백엔드 절 — 2026-10-17')과 역할별 Q('- 백엔드 1 = Q-4')를 읽는다 */
+function sendInfo(internal: string) {
+  const sent = new Map<string, string>();
+  for (const m of internal.matchAll(/^-\s*보냄:\s*(\S+)\s*절\s*—\s*\d{4}-(\d{2})-(\d{2})/gm)) sent.set(m[1], `${Number(m[2])}/${Number(m[3])}`);
+  const qs = new Map<string, string[]>();
+  for (const m of internal.matchAll(/^-\s*(\S+)\s[^=\n]*=\s*(Q-\d+)/gm)) qs.set(m[1], [...(qs.get(m[1]) ?? []), m[2]]);
+  return { sent, qs };
+}
+
+function Questions({ md, toSend }: { md: string; toSend: string[] }) {
   const { toast } = useOverlay();
   const parts = md.replace(/^#\s.*\n?/m, "").replace(/^---\s*$/gm, "").split(/\n(?=## )/);
+  const unsent = toSend.length;
+  const info = sendInfo(parts.find((p) => /^##\s*내부용/.test(p)) ?? "");
   return (
     <>
+      {unsent > 0 && (
+        <div className="send-note" style={{ margin: "4px 0 12px" }}>
+          <div className="sn-title">아직 안 보낸 질문이 {unsent}개 있어요</div>
+          <div className="sn-desc">{SEND_HOW}. 직접 보냈다면 대화창에 '보냈어'라고 알려 주세요</div>
+        </div>
+      )}
       {parts.map((p, i) => {
         if (!p.startsWith("## ")) return p.trim() ? <p key={i} className="muted" style={{ whiteSpace: "pre-wrap" }}>{p.trim()}</p> : null;
         const [head, ...rest] = p.split("\n");
@@ -65,11 +79,15 @@ function Questions({ md }: { md: string }) {
         if (/^##\s*내부용/.test(head)) {
           return <details key={i} className="qsec internal"><summary className="muted">{head.replace(/^##\s*/, "")}</summary><div className="qs-body">{body}</div></details>;
         }
+        const title = head.replace(/^##\s*/, "");
+        const role = title.split(/\s*—\s*/)[0].trim();
+        const notSent = (info.qs.get(role) ?? []).some((q) => toSend.includes(q));
+        const sentOn = info.sent.get(role);
         return (
           <div className="qsec" key={i}>
             <div className="qs-head">
-              <span className="qs-title">{head.replace(/^##\s*/, "")}</span>
-              <Button variant="weak" size="sm" onClick={() => navigator.clipboard.writeText(body).then(() => toast("복사했어요. Slack이나 Jira에 붙여 넣으면 돼요"))}>질문 복사하기</Button>
+              <span className="qs-title">{title}{notSent ? <Badge tone="orange" size="sm">아직 안 보냈어요</Badge> : sentOn ? <Badge tone="blue" size="sm">보냄 {sentOn}</Badge> : null}</span>
+              <Button variant="weak" size="sm" onClick={() => navigator.clipboard.writeText(body).then(() => toast("복사했어요. 직접 보냈다면 대화창에 '보냈어'라고 알려 주세요"))}>질문 복사하기</Button>
             </div>
             <div className="qs-body">{body}</div>
           </div>
@@ -101,11 +119,11 @@ export function Docs({ d, initial }: { d: TaskDetail; initial?: string | null })
     <section className="surface">
       <Tabs items={tabs} value={tab} onChange={change} />
       <div className="doc">
-        {tab === "질문지" && d.questions_md ? <Questions md={d.questions_md} /> : (
+        {tab === "질문지" && d.questions_md ? <Questions md={d.questions_md} toSend={toSendOf(d.check)} /> : (
           <>
             {tab === "검토 항목" && (
               <>
-                <div className="filters"><span className="f-label">상태</span>{["전체", "답 옴", "질문함", "추천(확인 전)", "정함", "열림", "범위 밖"].map((s) => <button key={s} className={state === s ? "on" : ""} onClick={() => setState(s)}>{s}</button>)}</div>
+                <div className="filters"><span className="f-label">상태</span>{["전체", ...Q_STATES].map((s) => <button key={s} className={state === s ? "on" : ""} onClick={() => setState(s)}>{s}</button>)}</div>
                 <div className="filters"><span className="f-label">담당</span>{["전체", ...owners].map((s) => <button key={s} className={owner === s ? "on" : ""} onClick={() => setOwner(s)}>{s}</button>)}</div>
               </>
             )}

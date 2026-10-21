@@ -15,7 +15,12 @@ export interface WorkItem {
 
 export interface Waiting {
   owner: string;
+  /** 질문함·기다림 모두 */
   ids: string[];
+  /** 그중 기다림(담당자가 하기로 함·다른 사람이 이미 물음) */
+  promised?: string[];
+  /** promised 중 다른 사람이 이미 물어 답을 기다리는 것(나머지는 담당자가 하기로 함) */
+  others_asked?: string[];
   since: string | null;
   days: number | null;
 }
@@ -30,7 +35,12 @@ export interface Check {
   warnings: string[];
   verdict: string;
   blocking: string[];
+  /** 질문함(실제로 보낸 질문) */
   asked: string[];
+  /** 보낼 질문(질문지에만 넣고 아직 안 보냄) */
+  to_send: string[];
+  /** 기다림(따로 묻지 않고 기다림) */
+  promised: string[];
   replied: string[];
   waiting: Waiting[];
   defaults: string[];

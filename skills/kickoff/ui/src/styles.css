@@ -312,7 +312,7 @@ table.t td:first-child { white-space: nowrap; font-weight: 600; }
 .filters button.on { background: var(--ink-900); color: #fff; }
 .qsec { border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; margin: 12px 0; }
 .qsec .qs-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; }
-.qsec .qs-title { font-weight: 700; }
+.qsec .qs-title { font-weight: 700; display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .qsec .qs-body { white-space: pre-wrap; font-size: 14.5px; line-height: 1.7; color: var(--ink-800); }
 
 /* 바텀시트 안 관련 항목 */
@@ -415,3 +415,10 @@ table.t td .short { white-space: nowrap; }
 .shot:hover img { border-color: #3182f6; }
 .shot-cap { font-size: 14px; font-weight: 600; word-break: break-all; }
 .shot-time { font-size: 12px; }
+
+/* 보낼 질문(아직 안 보냄)은 내 차례라 주황, 기다림은 대기라 파랑 글씨로 구분한다 */
+.send-note { background: var(--orange-weak); color: var(--orange-ink); border-radius: 12px; padding: 10px 14px; font-size: 14px; line-height: 1.55; }
+.send-note .sn-title { font-weight: 700; }
+.send-note .sn-desc { margin-top: 2px; }
+.rel .r-send { margin-top: 4px; font-size: 13px; font-weight: 600; color: var(--orange-ink); }
+.rel .r-wait { margin-top: 4px; font-size: 13px; font-weight: 600; color: var(--blue-ink); }

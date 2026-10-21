@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { WorkItem, WorkStage } from "../../lib/api";
-import { FLOW, STAGE_TONE, daysText } from "../../lib/stages";
+import { FLOW, STAGE_TONE, daysText, whyParts } from "../../lib/stages";
 import { Check } from "../../ui";
-import { shownStage } from "./Board";
+import { hasUnsent, shownStage } from "./Board";
 
 /**
  * 검토 중 → … → 완료. 늘 도는 것은 '진행 중' 궤도 하나뿐이다.
@@ -30,13 +30,17 @@ export function Flow({ work, pending, onPick }: { work: WorkItem[]; pending: Set
   const waiting = work.filter((w) => w.stage === "질문 대기" && w.wait_days != null).map((w) => w.wait_days!);
   const maxWait = waiting.length ? Math.max(...waiting) : null;
   const allPending = count("결정 필요") > 0 && work.filter((w) => w.stage === "결정 필요").every((w) => shownStage(w, pending) === "반영 중");
+  const unsent = work.filter(hasUnsent).length;
+  // 질문함 없이 기다림(하기로 함)만 있으면 '물어봤어요'라고 하지 않는다
+  const askedAny = work.some((w) => w.stage === "질문 대기" && whyParts(w.why)["질문함"]);
 
   return (
     <div className="flow" role="list" aria-label="단계별 작업 수">
       {FLOW.map((s, i) => {
         const n = counts[i];
         const sub =
-          s === "질문 대기" && n ? (maxWait == null ? "답 기다리는 중" : maxWait === 0 ? "오늘 물어봤어요" : `가장 오래 ${daysText(maxWait)}`)
+          s === "검토 중" && unsent ? "보낼 질문 있어요"
+          : s === "질문 대기" && n ? (maxWait == null ? "기다리는 중" : maxWait === 0 ? (askedAny ? "오늘 물어봤어요" : "오늘부터 기다려요") : `가장 오래 ${daysText(maxWait)}`)
           : s === "결정 필요" && n ? (allPending ? "반영하고 있어요" : "답이 왔어요")
           : s === "진행 중" && n ? "만드는 중"
           : s === "완료" && n ? `${n}개 끝냈어요` : "";

@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import type { WorkItem, WorkStage } from "../../lib/api";
 import { useChanged } from "../../lib/hooks";
 import { Inline } from "../../lib/md";
-import { FLOW, MOVABLE, PARKED, daysText, idsOf, roles } from "../../lib/stages";
+import { FLOW, MOVABLE, PARKED, daysText, idsOf, roles, waitingWhat } from "../../lib/stages";
 import { Badge, Check, Dot, Spinner } from "../../ui";
 
 const reduceMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -11,33 +11,38 @@ const reduceMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)")
 export const shownStage = (w: WorkItem, pending: Set<string>) =>
   w.stage === "결정 필요" && w.related.some((q) => pending.has(q)) ? "반영 중" : w.stage;
 
+/** 질문지에만 넣고 아직 안 보낸 질문 때문에 검토 중인 작업 */
+export const hasUnsent = (w: WorkItem) => w.stage === "검토 중" && w.why.startsWith("아직 안 보낸");
+
 function Indicator({ w, shown, fresh }: { w: WorkItem; shown: string; fresh: boolean }) {
   if (shown === "반영 중") return <Spinner />; // 진짜로 기다리는 곳에만 로딩을 쓴다
   if (w.stage === "완료") return <Check size={18} draw={fresh} />;
   if (w.stage === "결정 필요") return <Badge tone="fill-orange" size="sm">답 옴</Badge>;
+  if (hasUnsent(w)) return <Badge tone="orange" size="sm">보낼 질문</Badge>;
   if (w.stage === "진행 중") return <Dot tone="blue" />;
   if (w.stage === "질문 대기") return <Dot tone="grey" />;
   return null;
 }
 
-function whyText(w: WorkItem, shown: string) {
+function whyText(w: WorkItem, shown: string, othersAsked: Set<string>) {
   if (shown === "반영 중") return "제출한 답을 반영하고 있어요";
   if (w.stage === "질문 대기") {
     if (w.why.startsWith("앞 작업")) return `${idsOf(w.why)}이 끝나면 시작해요`;
-    return `${idsOf(w.why)} 답 기다리는 중${w.wait_days != null ? ` · ${daysText(w.wait_days)}` : ""}`;
+    return `${waitingWhat(w.why, othersAsked)} 기다리는 중${w.wait_days != null ? ` · ${daysText(w.wait_days)}` : ""}`;
   }
   if (w.stage === "결정 필요") return `${idsOf(w.why)} 답이 왔어요`;
+  if (hasUnsent(w)) return `${idsOf(w.why)} 아직 안 보냈어요`;
   if (w.stage === "검토 중") return `${idsOf(w.why)} 검토하고 있어요`;
   if (w.stage === "진행 중") return w.memo || "만드는 중이에요";
   return w.memo;
 }
 
-function WorkCard({ w, shown, fresh, shotCount, onOpen, onDragState }: {
-  w: WorkItem; shown: string; fresh: boolean; shotCount: number; onOpen: () => void; onDragState: (id: string | null) => void;
+function WorkCard({ w, shown, fresh, shotCount, othersAsked, onOpen, onDragState }: {
+  w: WorkItem; shown: string; fresh: boolean; shotCount: number; othersAsked: Set<string>; onOpen: () => void; onDragState: (id: string | null) => void;
 }) {
   const [dragging, setDragging] = useState(false);
   const who = roles(w.owner)[0];
-  const why = whyText(w, shown);
+  const why = whyText(w, shown, othersAsked);
   return (
     <button
       data-wid={w.id}
@@ -65,8 +70,8 @@ function WorkCard({ w, shown, fresh, shotCount, onOpen, onDragState }: {
  * 위치는 보드 기준 레이아웃 좌표(offsetLeft/Top)로 재므로, 위쪽이 밀리거나 폴링으로 다시 그려도 헛 애니메이션이 없다.
  * 착수 가능(자동)·진행 중·완료 열에 끌어다 놓을 수 있다. 나머지 열은 질문 상태로 정해진다.
  */
-export function Board({ work, shots, pending, onOpen, onMove, focus }: {
-  work: WorkItem[]; shots: Record<string, unknown[]>; pending: Set<string>; onOpen: (w: WorkItem) => void; onMove: (w: WorkItem, to: string) => void; focus: { stage: WorkStage; at: number } | null;
+export function Board({ work, shots, pending, othersAsked, onOpen, onMove, focus }: {
+  work: WorkItem[]; shots: Record<string, unknown[]>; pending: Set<string>; othersAsked: Set<string>; onOpen: (w: WorkItem) => void; onMove: (w: WorkItem, to: string) => void; focus: { stage: WorkStage; at: number } | null;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const rects = useRef(new Map<string, { x: number; y: number }>());
@@ -138,7 +143,7 @@ export function Board({ work, shots, pending, onOpen, onMove, focus }: {
                 <span className="c-count">{items.length}</span>
               </div>
               {items.map((w) => (
-                <WorkCard key={w.id} w={w} shown={shownStage(w, pending)} fresh={fresh.has(w.id)} shotCount={shots[w.id]?.length ?? 0} onOpen={() => onOpen(w)} onDragState={setDragId} />
+                <WorkCard key={w.id} w={w} shown={shownStage(w, pending)} fresh={fresh.has(w.id)} shotCount={shots[w.id]?.length ?? 0} othersAsked={othersAsked} onOpen={() => onOpen(w)} onDragState={setDragId} />
               ))}
               {!items.length && <div className="c-empty">{dragged && canDrop ? "여기에 놓아요" : ""}</div>}
             </section>

@@ -7,6 +7,7 @@
 화면이 쓰는 것:
   - <작업>/inbox.json : 카드 답·받은 답에 대한 결정·제출 여부. 에이전트가 읽어 brief.md 에 반영한 뒤 inbox-applied/ 로 옮긴다.
   - <작업>/brief.md   : 단계(0장 상태·7장 작업 단계 칸) 변경만 바로 고치고 9장 변경 기록에 한 줄 남긴다.
+Slack 으로 보내는 기능은 두지 않는다. 보낼 질문은 화면에 보여주기만 하고, 보내기는 대화창에서 사용자 승인 뒤에만 한다.
 """
 import datetime
 import importlib.util
