@@ -1,4 +1,4 @@
-// cj <pid> tabs | js <w> <t> <file|-> | go <w> <t> <url> | show <w>
+// cj <pid> tabs | js <w> <t> <file|-> | go <w> <t> <url> | show <w> | activate <w> <t>
 import Foundation
 import ScriptingBridge
 import AppKit
@@ -28,6 +28,11 @@ case "go":
   let w = Int(a[3])!, t = Int(a[4])!
   tab(w, t).setValue(a[5], forKey: "URL")
   print("navigated")
+case "activate":
+  let w = Int(a[3])!, t = Int(a[4])!
+  let win = windows.object(at: w) as! SBObject
+  win.setValue(t + 1, forKey: "activeTabIndex")
+  print("active tab \(t)")
 case "show":
   let w = Int(a[3])!
   let win = windows.object(at: w) as! SBObject
