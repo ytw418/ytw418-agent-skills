@@ -65,7 +65,7 @@ const GROUPS = {
   절지류: ["타란튤라", "지네", "전갈", "등각류", "기타 절지류"],
   파충류: ["레오파드 게코", "크레스티드 게코", "볼파이썬", "콘스네이크", "이구아나", "카멜레온", "육지거북", "수생거북"],
   어류: ["구피", "베타", "코리도라스", "안시스트루스", "디스커스", "금붕어"],
-  포유류: ["고슴도치", "햄스터", "기니피그", "토끼", "페럿", "친칠라"],
+  포유류: ["고슴도치", "햄스터", "기니피그", "토끼", "페럿", "친칠라", "강아지", "고양이"],
   양서류: ["팩맨", "엑솔로틀", "화이트트리프록", "다트프록", "뉴트"],
   식물: ["관엽식물", "다육식물", "식충식물", "테라리움 식물", "수초"],
 };
@@ -408,6 +408,11 @@ function validatePlan(plan, roster) {
         if (!allowed.includes(action.category)) {
           errors.push(`${at}: ${action.crew} 는 ${role} 크루 — ${allowed.length ? `${allowed.join("·")} 글만` : "글을 쓰지 않는다"}`);
         }
+        // 사진(imagePaths)은 사용자가 준 실제 사진만. 최대 10장.
+        for (const p of action.imagePaths ?? []) {
+          if (!fs.existsSync(path.resolve(ROOT, p))) errors.push(`${at}: 사진 파일이 없습니다 ${p}`);
+        }
+        if ((action.imagePaths ?? []).length > 10) errors.push(`${at}: 사진은 10장까지`);
         checkGroup();
         checkTitle();
         break;
@@ -472,16 +477,21 @@ function validatePlan(plan, roster) {
 async function uploadImage(token, file) {
   const { uploadURL, id } = await api("GET", "/api/files", { token });
   const form = new FormData();
-  form.append("file", new Blob([fs.readFileSync(file)]), path.basename(file));
+  form.append("file", new Blob([fs.readFileSync(file)], { type: "image/jpeg" }), path.basename(file));
   const res = await fetch(uploadURL, { method: "POST", body: form });
   if (!res.ok) throw new Error(`사진 업로드 실패 HTTP ${res.status}`);
-  return id;
+  // 실제 사진 id 는 업로드 응답의 result.id 다(웹 업로드와 같다). 주소를 받을 때의 id 는 404 가 날 수 있다.
+  const data = await res.json().catch(() => null);
+  if (data && data.success === false) throw new Error(`사진 업로드 실패 ${JSON.stringify(data.errors ?? [])}`);
+  return data?.result?.id || id;
 }
 
 async function runAction(action, member) {
   const token = await crewToken(member);
   switch (action.type) {
     case "post": {
+      const images = [];
+      for (const p of action.imagePaths ?? []) images.push(await uploadImage(token, path.resolve(ROOT, p)));
       const { post } = await api("POST", "/api/posts", {
         token,
         body: {
@@ -489,7 +499,7 @@ async function runAction(action, member) {
           description: action.description.trim(),
           category: action.category,
           species: action.species ?? null,
-          images: [],
+          images,
         },
       });
       appendJsonl(HISTORY_FILE, { type: "post", crew: member.key, id: post.id, title: post.title, at: new Date().toISOString() });
@@ -899,7 +909,11 @@ async function edit(positional, flags) {
         await api("POST", `/api/posts/${e.id}`, {
           token,
           // 분류·종을 보내지 않으면 서버가 비운다. 원래 값을 그대로 넘긴다. 사진 필드는 보내지 않아 그대로 둔다.
-          body: { action: "update", title: e.title.trim(), description: e.description.trim(), category: post.category, species: post.type },
+          body: {
+            action: "update", title: e.title.trim(), description: e.description.trim(), category: post.category, species: post.type,
+            // imagePaths 를 주면 사진을 새로 올려 바꾼다.
+            ...(e.imagePaths ? { images: await Promise.all(e.imagePaths.map((p) => uploadImage(token, path.resolve(ROOT, p)))) } : {}),
+          },
         });
         appendJsonl(logFile, { index, type: "post", crew: e.crew, id: e.id, ok: true, before: { title: post.title, description: post.description } });
         appendJsonl(HISTORY_FILE, { type: "post", crew: member.key, id: e.id, title: e.title.trim(), at: new Date().toISOString() });
