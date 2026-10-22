@@ -19,6 +19,8 @@ Allibee 프론트엔드의 i18n 키 작성/변경 시 아래 규칙을 따른다
 2. 기존 키의 **의미(문구/용도)**가 바뀌면 기존 키를 덮어쓰지 않고 suffix를 붙인다.
 3. suffix는 `V2`, `V3`, ... 순서로 증가시킨다.
 4. 키는 파일 경로를 반영한 dot-notation을 따른다. (예: `apps.cue.routes.sign-up.direct.email-input.page.subtitle`)
+5. **사용자에게 시트 행을 줄 때는 마크다운 표로 주지 않는다.** 항상 ` ```text ` 코드블록 안에 탭 구분 한 줄(키 컬럼 → ko → en → ja)로 준다. 표는 복사하면 탭이 사라져 시트에 붙여넣을 수 없다. 키가 여러 개면 한 블록에 한 줄씩 넣어 블록 전체를 한 번에 붙여넣을 수 있게 한다.
+6. 새 키라고 안내하기 전에 같은 경로의 키가 이미 있는지 생성 파일에서 확인한다. 앱별로 덮어쓰는 카탈로그(예: React `src/i18n/messages/app/*.json`)가 있으면 실제로 화면에 나오는 값도 함께 확인한다.
 
 ## 앱 판별
 
@@ -29,6 +31,7 @@ Allibee 프론트엔드의 i18n 키 작성/변경 시 아래 규칙을 따른다
 | `apps.contract.*`, `routes.*` | contract 시트 | **분리 포맷** (네임스페이스 + 마지막 키) |
 | `packages.service.lib.*` (공용) | packages.service.lib 시트 | **분리 포맷** (네임스페이스 + 마지막 키) |
 | `apps.cue.*` | FE CUE 시트 | **전체 키 포맷** (한 컬럼) |
+| `react.*` (allibee-frontend-react) | BA-FE 시트 | **분리 포맷** (네임스페이스 + 마지막 키) |
 
 > cue 앱이 `packages.service.lib.*` 키를 쓰더라도, 해당 키는 공용 시트(분리 포맷)에 입력한다. cue의 `sheet-to-i18n.js`가 공용 시트를 함께 읽어 병합한다.
 
@@ -72,6 +75,17 @@ apps.cue.lib.service.signIn.common.agreeAll	전체 동의	Agree to all	すべて
 # apps/cue 에서 실행 — src/lib/i18n/generated/{ko,en,ja}.ts 재생성
 npm run sheet-to-i18n
 ```
+
+## React(BA-FE) 시트 포맷 — 분리 포맷
+
+`scripts/i18n/sheet-to-json.mjs`가 `[네임스페이스, 마지막 키, ko, en, ja]`로 읽는다(contract와 같은 분리 포맷). 전체 키를 한 칸에 넣으면 키가 생성되지 않는다.
+
+```text
+react.packages.allibeeReact.service.businessAgent.agent.previewSupport.agentDocumentTabBar.agentDocument.tabs.components.agentDocumentTabBar	mobileList	목록	List	一覧
+```
+
+시트 반영 후 생성: `gh workflow run generate-ba-fe-i18n.yml --ref develop` (develop 기준, `src/i18n/messages/**` 갱신). PR 생성 토큰이 없으면 `generate-ba-fe-i18n-<run id>` 브랜치까지만 올라가므로 PR은 수동으로 연다.
+코드에서는 생성 전에도 화면이 깨지지 않게 `translateRuntime(key, '기본값')`으로 기본값을 둔다.
 
 ## 줄바꿈(`\n`) 포함 값 처리
 
