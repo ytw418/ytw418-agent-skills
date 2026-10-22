@@ -26,7 +26,7 @@ pwc fill $($D/ref.sh 'textbox "제목을 입력해 주세요."') "$TITLE" >/dev/
 $D/typebody.sh $B $BODY || { echo "본문이 원문과 다르게 들어감 — 등록하지 않음"; exit 3; }
 links=$(grep -cE 'https?://' $BODY); cards=$($D/pw.sh eval "document.querySelectorAll('.se-component.se-oglink').length")
 headnow=$($D/snap.sh >/dev/null; grep -m1 -E 'button "말머리 선택"|button "'"${HEAD:-없음}"'"' /tmp/rc_snap.yml | sed 's/.*button "\([^"]*\)".*/\1/')
-echo "링크 $links개 / 미리보기 카드 $cards개 / 말머리 ${headnow}"
+echo "링크 ${links}개 / 미리보기 카드 ${cards}개 / 말머리 ${headnow}"
 if [ -n "$DRY" ]; then pwc goto "about:blank" >/dev/null; pwc dialog-accept >/dev/null; echo "DRY RUN: 등록하지 않음"; exit 0; fi
 R=$($D/ref.sh 'button "등록"')
 (pwc click $R > /tmp/rc_post_click.txt &); sleep 10; pwc dialog-accept >/dev/null

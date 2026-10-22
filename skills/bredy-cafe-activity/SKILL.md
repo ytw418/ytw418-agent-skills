@@ -40,21 +40,25 @@ cd ~/Desktop/pro/bredy-marketing
 node scripts/bchrome.mjs check   # 로그인 점검(❌ 면 사용자에게 알리고 자동화 크롬에 로그인 탭을 열어 둔다)
 ```
 
-## 빠른 길 (일괄 도구, 2026-10-17)
+## 기본 경로 (일괄 도구 cafe.py — 항상 이걸로 한다)
 
-여러 개를 할 때는 단계별 명령 대신 `scripts/cafe.py` 두 번으로 끝낸다(토큰·시간 절약).
+글이 1개여도 `cafe.py` 로 한다. 도구 호출이 글 하나당 10회 안팎에서 전체 4~5회로 준다. 아래 '한 개씩' 절차는 cafe.py 가 막힐 때만 쓴다.
 
 ```bash
 cd ~/Desktop/pro/bredy-marketing   # cafe.py 는 저장소 scripts/ 에도 같은 사본이 있다
 D=content/$(date +%F)-cafe; mkdir -p $D
-SCROLLS=6 MAXCMT=3 python3 scripts/cafe.py collect $D/cands.json 30   # 질문 후보 + 본문 요약(이미 단 글·등급 잠금·댓글 많은 글 제외)
-# → 고른 질문으로 $D/plan.json 작성: [{"cafe":"hby|reptilia","id":…,"comment":"…{BLOG}", "blog":{"file","title","category","tags","photo"}}]
-python3 scripts/cafe.py run $D/plan.json   # 백그라운드로. 블로그 발행 → 댓글({BLOG} 치환) → $D/log.md, 댓글 사이 3~6분
+python3 scripts/cafe.py collect $D/cands.json 30   # ① 후보 + 본문·댓글 요약 (스크롤 6·댓글 3개 이하는 기본값, 이미 단 글·등급 잠금 제외)
+# ② 고른 질문으로 블로그 글 파일(content/…/blog-주제.txt, URL 은 맨 마지막 줄)과 $D/plan.json 을 Write 로 만든다:
+#    [{"cafe":"hby|reptilia","id":…,"comment":"…\n{BLOG}", "blog":{"file","title","category","tags","photo"}}]
+python3 scripts/cafe.py run $D/plan.json --dry     # ③ 게시 없이 plan 검사(링크 위치·파일 존재·이미 단 글·bredy.app 금지)
+python3 scripts/cafe.py run $D/plan.json           # ④ 백그라운드로. 블로그 발행 → 댓글({BLOG} 치환) → $D/log.md, 댓글 사이 3~6분
 ```
+
+보고는 `$D/log.md` 를 한 번 읽어 표로 한다(블로그 링크 + 댓글 첫 문장). 지난 댓글이 지워졌는지는 collect 때 후보 목록의 `mine` 으로 걸러지니 따로 열지 않아도 되고, 의심되는 글만 한 번 연다. 블로그 글을 쓰지 않는 글은 `blog` 를 빼고 댓글에서 `{BLOG}` 도 뺀다.
 
 사용자가 하루 개수를 늘려 달라고 하면 링크 댓글은 절반 정도만(나머지는 링크 없이 답만) 두어 스팸 신호를 줄인다.
 
-## 순서 (한 개씩 할 때)
+## 한 개씩 손으로 할 때 (cafe.py 가 막혔을 때만)
 
 1. **질문 모으기** — 카페 모바일 홈을 스크롤해 질문형 제목만 뽑는다(토큰 아끼려고 스냅샷 대신 eval 한 번).
    ```bash

@@ -1,6 +1,6 @@
 """카페 활동 일괄 도구(토큰·시간 절약용). 브라우저는 자동화 크롬(scripts/bpw.py).
   python3 scripts/cafe.py collect <out.json> [카페당 후보 수=8]   — 홈다리·파사모 최근 질문 후보를 본문·댓글 요약과 함께 모은다
-  python3 scripts/cafe.py run <plan.json>                          — 블로그 글(있으면) 발행 → 댓글({BLOG} 자리에 주소) → log.md 기록, 댓글 사이 3~6분
+  python3 scripts/cafe.py run <plan.json> [--dry]                  — (--dry: 게시 없이 plan 검사만) 블로그 글(있으면) 발행 → 댓글({BLOG} 자리에 주소) → log.md 기록, 댓글 사이 3~6분
 plan.json: [{"cafe":"hby","id":2800700,"comment":"…{BLOG}…", "blog":{"file":"…txt","title":"…","category":"…","tags":"a,b","photo":"assets/photos/…"}}]
 """
 import json, os, random, re, subprocess, sys, time
@@ -40,7 +40,7 @@ def collect(out, n):
     res = []
     for cafe in CAFES:
         pw("goto", f"https://m.cafe.naver.com/{cafe}"); time.sleep(4)
-        for _ in range(int(os.environ.get("SCROLLS", "3"))):
+        for _ in range(int(os.environ.get("SCROLLS", "6"))):
             pw("eval", "window.scrollBy(0,4000)"); time.sleep(1.2)
         rows = ev("JSON.stringify([...new Map([...document.querySelectorAll('a[href*=\"articleid\"],a[href*=\"/articles/\"]')].map(a=>{const m=a.href.match(/articleid=(\\d+)|articles\\/(\\d+)/)||[];return [m[1]||m[2],a.innerText.split('\\n')[0].trim()]})).entries()])") or []
         cands = [(i, t) for i, t in rows if i and re.search(Q, t) and not re.search(SKIP, t) and i not in done][:n]
@@ -55,8 +55,49 @@ def collect(out, n):
         print(f"{r['cafe'][:3]} #{r['id']} 댓글{r['cmt']} | {r['title'][:40]} | {(r['body'] or '')[60:200]}")
 
 
-def run(plan_path):
+def check(plan):
+    """게시 전 plan 검사 — 문제 목록을 돌려준다(빈 목록이면 통과)."""
+    bad = []
+    done = set()
+    for f in os.popen(f"ls {CWD}/content/*-cafe/log.md 2>/dev/null").read().split():
+        done |= set(re.findall(r"#(\d+)", open(f, encoding="utf-8").read()))
+    for it in plan:
+        tag = f"{it.get('cafe')} #{it.get('id')}"
+        if it.get("cafe") not in CAFES:
+            bad.append(f"{tag}: 모르는 카페")
+        if str(it.get("id")) in done:
+            bad.append(f"{tag}: 이미 단 글")
+        c = it.get("comment", "")
+        if "bredy.app" in c:
+            bad.append(f"{tag}: 댓글에 bredy.app 링크 금지")
+        if it.get("blog"):
+            b = it["blog"]
+            if not c.rstrip().endswith("{BLOG}"):
+                bad.append(f"{tag}: {{BLOG}} 은 댓글 맨 끝이어야 함")
+            for k in ("file", "title", "category", "tags", "photo"):
+                if not b.get(k):
+                    bad.append(f"{tag}: blog.{k} 없음")
+            for k in ("file", "photo"):
+                if b.get(k) and not os.path.exists(os.path.join(CWD, b[k])):
+                    bad.append(f"{tag}: 파일 없음 {b[k]}")
+            if b.get("file") and os.path.exists(os.path.join(CWD, b["file"])):
+                last = open(os.path.join(CWD, b["file"]), encoding="utf-8").read().rstrip().splitlines()[-1]
+                if not last.startswith("https://"):
+                    bad.append(f"{tag}: 블로그 글 마지막 줄이 URL 이 아님")
+        elif "{BLOG}" in c:
+            bad.append(f"{tag}: blog 없는데 {{BLOG}} 있음")
+    return bad
+
+
+def run(plan_path, dry=False):
     plan = json.load(open(plan_path, encoding="utf-8"))
+    bad = check(plan)
+    if bad:
+        print("plan 문제:\n" + "\n".join(bad)); sys.exit(2)
+    if dry:
+        for it in plan:
+            print(f"dry ok {it['cafe']} #{it['id']} 블로그 {'있음' if it.get('blog') else '없음'} | {it['comment'].splitlines()[0][:40]}")
+        print(f"dry: {len(plan)}건 통과, 게시 안 함"); return
     log = os.path.join(os.path.dirname(os.path.abspath(plan_path)), "log.md")
     for k, it in enumerate(plan):
         blog = ""
@@ -80,4 +121,4 @@ def run(plan_path):
 
 
 if __name__ == "__main__":
-    {"collect": lambda: collect(sys.argv[2], int(sys.argv[3]) if len(sys.argv) > 3 else 8), "run": lambda: run(sys.argv[2])}[sys.argv[1]]()
+    {"collect": lambda: collect(sys.argv[2], int(sys.argv[3]) if len(sys.argv) > 3 else 8), "run": lambda: run(sys.argv[2], "--dry" in sys.argv)}[sys.argv[1]]()
