@@ -64,6 +64,7 @@ python3 scripts/cafe.py run $D/plan.json   # 백그라운드로. 블로그 발�
    python3 ~/.claude/skills/bredy-cafe-activity/scripts/naver-photos.py <본문.txt> "<제목>" "<카테고리>" "<태그,태그>" assets/photos/<CC0 사진>
    ```
    카테고리: 물고기 → `물고기 키우기`, 파충류·곤충 → `브리디 소식`. 사진은 `assets/photos/SOURCES.md` 의 CC0 만. 출력된 글 주소를 확인한다.
+   - 블로그 글에는 쿠팡 파트너스 링크 하나 + 대가성 문구를 넣는다(아래 '블로그 쿠팡 파트너스 링크').
 4. **카페 댓글** — `content/<날짜>-cafe/c-<주제>.txt`(마지막 줄 = 블로그 링크).
    ```bash
    python3 ~/.claude/skills/bredy-cafe-activity/scripts/cafe-comment.py "https://m.cafe.naver.com/ca-fe/web/cafes/<clubid>/articles/<id>" content/<날짜>-cafe/c-<주제>.txt
@@ -75,3 +76,10 @@ python3 scripts/cafe.py run $D/plan.json   # 백그라운드로. 블로그 발�
 
 - 같은 주제로 브리디 앱 커뮤니티에 정보글을 올리고 싶으면 bredy-crew-activity 스킬(크루 계정, 계획 → lint → 확인 → apply)로 올리고, 블로그 끝 링크를 그 글로 건다.
 - 블로그에 '생물 키우는 사람들 앱 만드는 1인 개발자' 자기소개 글을 하나 고정해 두고 정보글 끝마다 '함께 보면 좋은 글'로 건다('표' 방식, 아직 안 함).
+
+## 블로그 쿠팡 파트너스 링크 (2026-10-22 사용자 결정)
+네이버 블로그(bredy_team) 글에는 **정보글·분양·경매 홍보글 모두** 관련 용품 쿠팡 파트너스 링크를 **하나만** 넣는다(구글 애드센스는 네이버 블로그에 못 넣고, 생물 거래 글에 넣으면 AdMob 계정까지 위험해서 쓰지 않는다).
+- 링크 만들기: `bash ~/Desktop/pro/bredy-marketing/scripts/coupang-link.sh "<검색어 또는 쿠팡 주소>"` → `https://link.coupang.com/a/...`(트래킹 AF2109367, 자동화 크롬 파트너스 로그인 사용). 검색어는 글 주제 용품(예: `크레스티드게코 슈퍼푸드`, `게코 사육장`, `거북이 여과기`). 생물 자체는 링크하지 않는다.
+- 위치: 본문 끝, 브리디 안내 줄 **앞**. `🛒 같이 쓰면 좋은 용품: <링크>` 한 줄 → 빈 줄 → 대가성 문구 → 빈 줄 → 브리디 안내(맨 마지막).
+- 대가성 문구(빼면 공정위 표시 위반): `이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.`
+- 카페 댓글·인스타·스레드·X 에는 쿠팡 링크를 넣지 않는다(블로그만).
