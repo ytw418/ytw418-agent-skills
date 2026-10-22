@@ -1,6 +1,6 @@
 ---
 name: deploy-allibee-frontend
-description: allibee-frontend 레포의 앨리비(contract)/큐(cue) 앱을 dev·demo·prod 환경에 배포한다. 배포 브랜치(develop, master, production, cue/master, cue/production)를 리베이스로 최신화하고 환경별 GitHub Actions 워크플로우를 실행하며, demo 배포 시 새 커밋의 Jira 티켓을 추출해 QA존 Slack 채널에 공지한다. 특정 커밋만 긴급 반영하는 핫픽스 배포(deploy/YYYY-MM-DD 브랜치 + 체리픽 + 브랜치 ref 직접 배포)도 지원한다. allibee-frontend-react(리액트 BA)를 큐 demo에 올리는 배포(react master 승격 → React DEMO 배포·큐 MFE 발행 → 발행 완료 후 큐 demo 배포)도 이 스킬로 한다. 사용자가 '앨리비 배포', '큐 배포', 'dev2 배포', '데모 배포', '프로드 배포', 'cue 배포', 'contract 배포', '리액트 큐 demo 배포', '리액트 demo 배포', 'react demo 배포', 'MFE 발행', 'deploy allibee', 'deploy cue' 등을 요청할 때 사용한다.
+description: allibee-frontend 레포의 앨리비(contract)/큐(cue) 앱을 dev·demo·prod 환경에 배포한다. 배포 브랜치(develop, master, production, cue/master, cue/production)를 리베이스로 최신화하고 환경별 GitHub Actions 워크플로우를 실행하며, demo 배포 시 새 커밋의 Jira 티켓을 추출해 QA존 Slack 채널에 공지한다. 특정 커밋만 긴급 반영하는 핫픽스 배포(deploy/YYYY-MM-DD 브랜치 + 체리픽 + 브랜치 ref 직접 배포)도 지원한다. allibee-frontend-react(리액트 BA)를 큐 demo에 올리는 배포(react master 승격 → React DEMO 배포·큐 MFE 발행 → 발행 완료 후 큐 demo 배포)도 이 스킬로 한다. 사용자가 '앨리비 배포', '큐 배포', 'dev2 배포', '데모 배포', '프로드 배포', 'cue 배포', 'contract 배포', '리액트 큐 demo 배포', '리액트 큐 dev 배포', '큐랑 리액트큐 배포', '리액트 demo 배포', 'react demo 배포', 'MFE 발행', 'deploy allibee', 'deploy cue' 등을 요청할 때 사용한다.
 ---
 
 # Deploy Allibee Frontend
@@ -182,6 +182,25 @@ gh run view <발행 run id> -R bhsn-ai/allibee-frontend-react --log | grep "cue-
 보고에는 React 커밋 범위(`$OLD_REACT..origin/master`), 큐 커밋 범위, 발행 digest와 임베드 digest 일치 여부, 세 run URL을 적는다. QA존 공지는 Step 4와 같다. 티켓은 React와 큐 커밋 범위에서 모두 뽑고, 보내기 전에 사용자에게 확인받는다.
 
 DEMO-V2(`demo-v2.one.allibee.ai`)는 별도다(`allibee-react-cue-publish-demo-v2.yml` → `cuev2-gcp-demo-deploy.yml`). 사용자가 요청할 때만 같은 순서로 한다.
+
+### 리액트 큐 dev·prod 발행
+
+dev·prod 도 순서는 같다 — **큐 MFE 발행 성공을 확인한 뒤** 같은 환경의 큐 배포를 실행한다(큐만 배포하면 직전에 발행된 React 가 들어간다). React 레포 AGENTS.md §7 가드 때문에 dev 발행은 `develop`·`deploy/*`, prod 발행은 `production`·`deploy/*` ref 가 아니면 실패한다.
+
+| 환경 | React 발행 (ref) | 짝이 되는 큐 배포 |
+|---|---|---|
+| dev | `allibee-react-cue-publish-dev.yml` (`develop`, 승격 없음) | `cue-gcp-dev-deploy.yml` (`develop`) |
+| prod | `allibee-react-cue-publish-prod.yml` (`production`) | `cue-gcp-prod-deploy.yml` (`cue/production`) |
+
+- React `production` 승격은 릴리스 담당자가 한다 — 직접 올리지 않는다. prod 는 발행·배포 모두 실행 직전에 사용자 최종 확인을 받는다.
+
+```bash
+# dev 예: 발행이 성공하면 큐 dev 배포를 잇는다
+gh workflow run allibee-react-cue-publish-dev.yml -R bhsn-ai/allibee-frontend-react --ref develop
+sleep 5; RUN=$(gh run list -R bhsn-ai/allibee-frontend-react --workflow=allibee-react-cue-publish-dev.yml --limit 1 --json databaseId -q '.[0].databaseId')
+gh run watch "$RUN" -R bhsn-ai/allibee-frontend-react --exit-status -i 20 >/dev/null \
+  && gh workflow run cue-gcp-dev-deploy.yml -R bhsn-ai/allibee-frontend --ref develop
+```
 
 ## 핫픽스 배포 (특정 커밋만 프로드에 긴급 반영)
 
