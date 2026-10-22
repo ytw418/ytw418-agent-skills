@@ -8,7 +8,7 @@
 //   node ig.mjs login                크롬 창을 띄운다 → 사용자가 bredy_breeder(또는 IG_ACCOUNT) 로 직접 로그인(비밀번호는 스크립트가 보지 않음)
 //   node ig.mjs check                로그인 상태 확인
 //   node ig.mjs send [n]             후보(targets.csv '후보')에게 첫 메시지 — 실제 보냄 n명(기본 10)이 될 때까지
-//   node ig.mjs inbox                읽지 않은 대화를 열어 handle·최근 메시지를 JSON 으로
+//   node ig.mjs inbox [--peek]      읽지 않은 대화를 열어 handle·최근 메시지를 JSON 으로(--peek: 열지 않고 목록 줄만 — '읽음'이 안 됨)
 //   node ig.mjs read <handle>        그 사람 대화 최근 메시지 JSON
 //   node ig.mjs reply <handle> <글>  답장(여러 줄은 글 안의 \n)
 //   node ig.mjs harvest <계정> <검색어...>  그 계정 팔로잉 창을 한글 검색어로 훑어 handle·표시 이름 JSON(기록 안 함 → outreach add)
@@ -356,6 +356,8 @@ async function cmdSend(want) {
       }
       outreach("mark", t.handle, "보냄", second ? `${memo} + 2차` : memo);
       result.sent.push(t.handle);
+      // slot.mjs 가 몇 분 뒤 이 대화방을 다시 열어 보낸 글이 남아 있는지 본다(말풍선만 보고 ok 판단 금지 — 10-15)
+      if (!result.sample) result.sample = { handle: t.handle, text: lines.join("\n") };
       log(`보냄 ${result.sent.length}/${want}: ${t.handle}`);
       if (await limitHit(page)) { result.stopped = "제한 문구"; break; }
       await sleep(GAP_MS); // 몰아서 보내면 로그아웃된다(10-11: 6분에 28명 → 세션 끊김)
@@ -383,6 +385,12 @@ async function cmdInbox() {
     const n = await unread.count();
     const names = [];
     for (let i = 0; i < n; i++) names.push(norm(await unread.nth(i).innerText()).split("\n")[0]);
+    if (flags.has("--peek")) {
+      // 대화를 열지 않고 목록 줄만 읽는다 — 열면 '읽음'이 돼 다음 실행의 안 읽은 목록에서 빠진다(시험·점검용)
+      for (let i = 0; i < n; i++) items.push({ name: names[i], preview: norm(await unread.nth(i).innerText()).replace(/\n/g, " | ") });
+      console.log(JSON.stringify(items, null, 2));
+      return; // finally 가 탭을 닫고 잠금을 푼다
+    }
     for (const name of names) {
       await page.goto("https://www.instagram.com/direct/inbox/", { waitUntil: "domcontentloaded" });
       await sleep(2500);
@@ -495,7 +503,7 @@ const main = {
 }[cmd];
 
 if (!main) {
-  console.log("usage: ig.mjs login|check|send [n]|inbox|read <handle>|reply <handle> <글>|harvest <계정> <검색어...>  [--headless --dry --ignore-limit]");
+  console.log("usage: ig.mjs login|check|send [n]|inbox [--peek]|read <handle>|reply <handle> <글>|harvest <계정> <검색어...>  [--headless --dry --ignore-limit]");
   process.exit(1);
 }
 main().catch((e) => {

@@ -3,9 +3,9 @@
   "morning": {"all": {"board": "로봇 뉴스", "head": "", "kind": "news"}},
   "lunch": {
     "0": {"board": "휴머노이드", "head": "정보", "kind": "guide"},
-    "1": {"board": "로봇청소기·가정용로봇", "head": "정보", "kind": "guide"},
+    "1": {"board": "로봇청소기·가정용로봇", "head": "질문", "kind": "ask"},
     "2": {"board": "드론", "head": "정보", "kind": "guide"},
-    "3": {"board": "로봇강아지·펫로봇", "head": "정보", "kind": "guide"},
+    "3": {"board": "로봇강아지·펫로봇", "head": "질문", "kind": "ask"},
     "4": {"odd": {"board": "서빙로봇", "head": "정보", "kind": "guide"}, "even": {"board": "배달로봇", "head": "정보", "kind": "guide"}},
     "5": {"odd": {"board": "로봇팔·협동로봇", "head": "정보", "kind": "guide"}, "even": {"board": "제초·농업로봇", "head": "정보", "kind": "guide"}},
     "6": {"board": "교육용·DIY로봇", "head": "정보", "kind": "guide"}

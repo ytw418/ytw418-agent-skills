@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""usage: lint.py <제목.txt> <본문.txt> [--kind news|guide|jobs|events|talk] [--sources sources.json] [--fetch]
+"""usage: lint.py <제목.txt> <본문.txt> [--kind news|guide|jobs|events|talk|ask] [--sources sources.json] [--fetch]
 카페 글 검사: 공식 말투(SNS 말투 금지), 금지 표현, 글 종류별 제목·링크 수, 링크마다 '출처:/공고:/안내:' 줄,
 검증된 링크만, (news·guide·talk) 원문과 20자 이상 똑같은 문장."""
 import html, json, re, subprocess, sys
@@ -15,6 +15,7 @@ RULES = {  # 제목 접두어, 링크 수 범위, 본문 글자 수 범위
     'jobs': ('[이번 주 로봇 채용]', (3, 10), (300, 3000)),
     'events': ('[로봇 행사]', (2, 8), (300, 2500)),
     'talk': (None, (0, 3), (150, 1200)),
+    'ask': (None, (0, 2), (150, 1000)),
 }
 prefix, (lo, hi), (cmin, cmax) = RULES[kind]
 errs, warns = [], []
@@ -46,7 +47,9 @@ if not lo <= len(urls) <= hi:
 if sources is not None:
     ok = {s['url'] for s in sources if s.get('verified')}
     errs += ['검증 목록에 없는 링크: ' + u for u in urls if u not in ok]
-if '--fetch' in args and kind in ('news', 'guide', 'talk'):
+if kind in ('talk', 'ask') and '?' not in body:
+    errs.append('회원에게 묻는 질문(?)이 없음')
+if '--fetch' in args and kind in ('news', 'guide', 'talk', 'ask'):
     norm = lambda s: re.sub(r'\s+', '', s)
     for u in urls:
         raw = subprocess.run(['curl', '-sL', '--max-time', '15', '-A', 'Mozilla/5.0', u], capture_output=True).stdout.decode('utf-8', 'ignore')

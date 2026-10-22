@@ -28,7 +28,26 @@ node $IG check | inbox | read <handle> | reply <handle> <글> | send [n] [--dry]
 ```
 인스타 게시 스크립트와 같은 'instagram' 사이트 잠금을 써서, DM 보내기와 게시물 올리기가 겹치지 않는다(다른 사이트 작업과는 병렬).
 
-## 실행 순서 (한 번 = 아침/점심/저녁 한 슬롯)
+## 기본: `slot.mjs` 한 명령 (2026-10-21)
+
+정해진 단계(준비 확인 → 남은 자리 → 새 메시지 → 1명 다시 열어 확인 → 후보 수 → 안 읽은 답장 목록 → 로그 기록)는 스크립트가 한다. 에이전트는 JSON 을 읽고 **답장 판단·목록 보충·보고**만 한다.
+
+```bash
+SLOT=~/.claude/skills/bredy-instagram-outreach/scripts/slot.mjs
+cd ~/Documents/bredy-outreach/runner
+OUTREACH_DAILY_LIMIT=80 node $SLOT --n 27     # 하루 한도·슬롯 인원은 일정 프롬프트가 정한다(옵션 --probe-after 9 --refill-below 60 --dry --status)
+```
+
+- **Bash 는 포그라운드(timeout 600000)로 실행한다.** 27명이면 25분쯤 걸려서 스크립트가 스스로 떨어져 나가는 작업 프로세스를 띄우고 이 명령은 570초까지만 기다린다. `{"status":"running"}` + 종료 코드 10 이면 **같은 명령을 그대로 다시 실행**한다(새로 시작하지 않고 이어서 기다린다). 결과 JSON 이 나올 때까지 반복한다. 백그라운드로 돌리고 "알림을 기다리겠다"고 답하면 일정 세션이 거기서 끝난다(10-20·10-21 로봇천국 일정이 그렇게 끝나 글이 안 올라갔다).
+- 하는 일: 남은 창립 자리(`slots_left`, 보고용) → 오늘 누계·한도 → 새 메시지(앞 `--probe-after` 명 → 대화방을 다시 열어 보낸 글이 남아 있는지 `recheck` → 나머지) → 후보 수·분야별(`candidates`, `need_refill`) → 안 읽은 답장(`unread`, 대화를 열어 읽음 처리됨) → `log/<날짜>.md` 에 자동 기록.
+- 분야 전용 문구를 쓸 때는 `IG_FIELD=물고기 IG_TEMPLATE='## 물생활 1차' node $SLOT …` 처럼 환경변수를 붙인다(ig.mjs send 로 그대로 넘어간다). `IG_ACCOUNT` 도 마찬가지.
+- 종료 코드: 0 정상 / 2 `needs_human`(로그인이 풀림 — 사람이 해야 한다, 멈추고 보고) / 3 안전 중단(`send.stopped`: 재확인 실패·제한 문구·줄바꿈 빠짐·연속 전송 실패 — 그날 신규 발송을 더 하지 말고 이유와 함께 보고) / 1 오류(`message`) / 10 아직 도는 중.
+- 에이전트가 이어서 하는 일: ① `unread` 를 templates.md '자동으로 보내도 되는 것' 표에 맞는 것만 `node $IG reply` + `node $OUT mark`, 표 밖은 '사람에게 넘길 것'(필요하면 `node $IG read <handle>` 로 전체 대화) ② `candidates.need_refill` 이면 아래 '목록 보충' ③ 보고. 로그 파일에는 사람에게 넘길 것·답장 처리만 덧붙인다(발송 결과는 이미 자동 기록).
+- 시험은 `node $SLOT --dry`(후보 1명 입력 확인까지만, 안 읽은 목록은 열지 않고 줄만) — 실제 전송·읽음 표시 없음. 진행·결과 상태는 `node $SLOT --status`, 로그는 `~/Documents/bredy-outreach/slot-state/<계정>.log`.
+
+## 수동 순서 (slot.mjs 가 안 될 때·한 단계만 필요할 때)
+
+아래는 slot.mjs 가 하는 일을 한 단계씩 손으로 돌릴 때의 순서다.
 
 1. **준비 확인** — `node $IG check`. "로그인 안 됨"이면 이유를 적고 끝낸다.
 2. **남은 자리** — `node $OUT slots` 는 보고용으로만 본다. 창립 100석은 10-16 에 마감됐고, 지금 문구(templates.md '첫 메시지 — 기본' 10-19 판)엔 남은 자리가 없어 0이어도 계속 보낸다(10-19 사용자 "더 보내야지 왜 멈춰").

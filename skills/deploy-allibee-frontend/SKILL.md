@@ -1,6 +1,6 @@
 ---
 name: deploy-allibee-frontend
-description: allibee-frontend 레포의 앨리비(contract)/큐(cue) 앱을 dev·demo·prod 환경에 배포한다. 배포 브랜치(develop, master, production, cue/master, cue/production)를 리베이스로 최신화하고 환경별 GitHub Actions 워크플로우를 실행하며, demo 배포 시 새 커밋의 Jira 티켓을 추출해 QA존 Slack 채널에 공지한다. 특정 커밋만 긴급 반영하는 핫픽스 배포(deploy/YYYY-MM-DD 브랜치 + 체리픽 + 브랜치 ref 직접 배포)도 지원한다. allibee-frontend-react(리액트 BA)를 큐 demo에 올리는 배포(react master 승격 → React DEMO 배포·큐 MFE 발행 → 발행 완료 후 큐 demo 배포)도 이 스킬로 한다. 사용자가 '앨리비 배포', '큐 배포', 'dev2 배포', '데모 배포', '프로드 배포', 'cue 배포', 'contract 배포', '리액트 큐 demo 배포', '리액트 demo 배포', 'react demo 배포', 'MFE 발행', 'deploy allibee', 'deploy cue' 등을 요청할 때 사용한다.
+description: allibee-frontend 레포의 앨리비(contract)/큐(cue) 앱을 dev·demo·prod 환경에 배포한다. 배포 브랜치(develop, master, production, cue/master, cue/production)를 리베이스로 최신화하고 환경별 GitHub Actions 워크플로우를 실행하며, demo 배포 시 새 커밋의 Jira 티켓을 추출해 QA존 Slack 채널에 공지한다. 특정 커밋만 긴급 반영하는 핫픽스 배포(deploy/YYYY-MM-DD 브랜치 + 체리픽 + 브랜치 ref 직접 배포)도 지원한다. allibee-frontend-react(리액트 BA)를 큐 demo에 올리는 배포(react master 승격 → 큐 MFE 발행 → 발행 완료 후 큐 demo 배포. React 단독 배포 워크플로는 돌리지 않는다)도 이 스킬로 한다. 사용자가 '앨리비 배포', '큐 배포', 'dev2 배포', '데모 배포', '프로드 배포', 'cue 배포', 'contract 배포', '리액트 큐 demo 배포', '리액트 demo 배포', 'react demo 배포', 'MFE 발행', 'deploy allibee', 'deploy cue' 등을 요청할 때 사용한다.
 ---
 
 # Deploy Allibee Frontend
@@ -145,7 +145,6 @@ ALLIBEE-224
 | 단계 | 레포 | ref | 워크플로우 |
 |---|---|---|---|
 | 1. master 승격 | allibee-frontend-react | develop → master (fast-forward만) | — |
-| 2. React DEMO 배포 | allibee-frontend-react | `master` | `allibee-react-demo-deploy.yml` |
 | 2. 큐 MFE 발행 | allibee-frontend-react | `master` | `allibee-react-cue-publish-demo.yml` |
 | 3. 큐 demo 배포 (발행 성공 후) | allibee-frontend | `cue/master` | `cue-gcp-demo-deploy.yml` |
 
@@ -160,9 +159,8 @@ git -C "$RR" merge-base --is-ancestor origin/master origin/develop \
   && git -C "$RR" push origin "$(git -C "$RR" rev-parse origin/develop)":refs/heads/master
 git -C "$RR" fetch origin && git -C "$RR" rev-list --count origin/master...origin/develop   # 0이어야 한다
 
-# 2) master에서 두 워크플로우 실행
+# 2) master에서 큐 MFE 발행 (allibee-react-demo-deploy.yml 은 실행하지 않는다)
 gh workflow run allibee-react-cue-publish-demo.yml -R bhsn-ai/allibee-frontend-react --ref master
-gh workflow run allibee-react-demo-deploy.yml -R bhsn-ai/allibee-frontend-react --ref master
 gh run list -R bhsn-ai/allibee-frontend-react --workflow=allibee-react-cue-publish-demo.yml --limit 1 --json databaseId,headSha
 gh run watch <발행 run id> -R bhsn-ai/allibee-frontend-react --exit-status
 gh run view <발행 run id> -R bhsn-ai/allibee-frontend-react --log | grep "cue-demo-current: digest"   # 발행 digest 기록
@@ -176,10 +174,11 @@ gh run view <발행 run id> -R bhsn-ai/allibee-frontend-react --log | grep "cue-
 **반영 확인** (워크플로우 성공만으로 완료라고 하지 않는다):
 
 - 큐 배포 로그의 `임베드할 MFE 이미지: ...@sha256:<digest>`가 2단계 발행 digest와 같은지 본다.
-- React DEMO run의 `Cloud Deploy rollout succeeded`를 본다.
 - 실제 사이트가 새 코드를 내려주는지 본다: `https://demo.one.allibee.ai/_mfe/business-agent/.vite/manifest.json`의 JS 파일을 받아 이번 변경에만 있는 문자열을 검색한다(매니페스트는 `no-store`, 청크는 해시 파일명).
 
-보고에는 React 커밋 범위(`$OLD_REACT..origin/master`), 큐 커밋 범위, 발행 digest와 임베드 digest 일치 여부, 세 run URL을 적는다. QA존 공지는 Step 4와 같다. 티켓은 React와 큐 커밋 범위에서 모두 뽑고, 보내기 전에 사용자에게 확인받는다.
+보고에는 React 커밋 범위(`$OLD_REACT..origin/master`), 큐 커밋 범위, 발행 digest와 임베드 digest 일치 여부, 두 run URL을 적는다. QA존 공지는 Step 4와 같다. 티켓은 React와 큐 커밋 범위에서 모두 뽑고, 보내기 전에 사용자에게 확인받는다.
+
+**리액트 큐 dev 배포**도 같은 방식이다: React `develop`에서 `allibee-react-cue-publish-dev.yml` → 성공 후 큐 `develop`에서 `cue-gcp-dev-deploy.yml`. `allibee-react-develop-deploy.yml`은 돌리지 않는다(사용자 결정 2026-10-19).
 
 DEMO-V2(`demo-v2.one.allibee.ai`)는 별도다(`allibee-react-cue-publish-demo-v2.yml` → `cuev2-gcp-demo-deploy.yml`). 사용자가 요청할 때만 같은 순서로 한다.
 
