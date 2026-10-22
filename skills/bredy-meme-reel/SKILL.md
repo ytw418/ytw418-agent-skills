@@ -5,6 +5,9 @@ description: 매일 새벽 요즘 유행하는 밈을 조사해 그날 밈 하�
 
 # 브리디 밈 릴스 (하루 1개)
 
+> **2026-10-22 사용자 결정 — 회사 슬랙으로 보내지 않는다.** 아래의 'Slack·슬랙 본인 DM(U092LHJH732)' 단계는 모두 애플 메모로 바꿔 읽는다: 글을 파일로 쓴 뒤 `python3 -I ~/Desktop/pro/personal-todo/note_post.py '<메모 제목>' <파일> [--append]`. 메모 제목: '🦎 브리디 브리핑'(--append)
+
+
 작업 폴더 `~/Desktop/pro/bredy-marketing`, 기록 `content/memes/memes.jsonl`(하루 한 줄), 그날 폴더 `content/memes/<YYYY-MM-DD>/`. 도우미는 이 스킬의 `scripts/`.
 
 ## 규칙 (2026-10-22 사용자 결정)
@@ -16,6 +19,17 @@ description: 매일 새벽 요즘 유행하는 밈을 조사해 그날 밈 하�
 - 실존 인물·유명인 얼굴, 정치·참사 밈, 피·혐오 표현 금지. 영상에 회원 사진·정보를 넣지 않는다.
 - 시간: 새벽 05:00에 만들고, 게시는 **밤 9시** 예약(인스타) / 웹은 만들 때 바로 올리되 틱톡·유튜브 예약 기능이 있으면 21:00 로 건다. 10~18시엔 아무것도 돌리지 않는다.
 - 공개 게시는 사전 승인됨(사용자 확인 없이 진행). 실패하면 그 플랫폼만 건너뛰고 보고한다.
+
+## 0. 앱·화면 함정 (10-22 첫 실행에서 확인)
+- `emu.sh on` 은 에뮬레이터만 켠다 → `adb -s emulator-5560 shell monkey -p com.instagram.android 1` 로 앱을 띄운다.
+- 앱을 새로 띄우면 'Allow notifications' → Don't allow(540,1468). REEL 진입 때 'Keep editing your draft?' → Start new video(540,1824).
+- Trending 탭(360,1155) → 곡 행 누르면 미리듣기 → 선택 화살표(975,2200) → Done(975,255) → Next(950,2275) → 안내 OK(540,2170) → 캡션(540,1112) → 체크(990,200). Share(800,2225), AI 라벨 토글(968,1008)은 켠다.
+- 'Also share on' 에 Facebook·Your story 가 기본 켜짐 → 끈다(968,1804·968,1956, 'Don't share this reel' 540,1208). Threads 만 켠다.
+- 이 맥의 ffmpeg 에는 `drawtext` 가 없다 → 자막은 swift 로 Pretendard PNG 를 만들어 `sips --resampleWidth 720` 후 `overlay`. Gemini 워터마크는 `delogo=x=570:y=1130:w=80:h=60`(720×1280).
+- 스레드 첫 댓글은 한 bash 호출 안에서 입력~전송(`bpw.sh` 를 다시 source 하면 새 탭이 열려 입력이 사라진다). 전송은 `img "답글"` 바로 앞 button.
+- 틱톡: 한 호출 안에서 goto /tiktokstudio/upload → '동영상 선택' → `pw upload` → 25초 → 설명칸은 `keyboard.insertText`(pw type 은 한글이 빠진다) → AI 생성 표시 켜기 → `button "게시"`. 게시 직후 '검토 중·나만 보기'로 보일 수 있다.
+- 유튜브 고정 댓글은 Studio 에서 따로 단다(설명란 링크는 post-reel.sh 로 된다).
+- 밈 조사 3곳은 시간이 없어도 건너뛰지 않는다(10-22 실행은 인스타 Trending 만 봤다).
 
 ## 1. 밈 조사 (10분 안)
 같은 세 곳만 본다.
@@ -47,7 +61,7 @@ Avoid: real people or celebrities, human face close-ups, insects, gore, logos.
 `bash scripts/frames.sh raw.mp4 frames.png` → Read 로 본다. 불합격: 실존 인물처럼 보임, 손발·몸이 뒤틀림, 동물이 안 보임, 깨진 글자, 밈이 안 읽힘. 불합격이면 4단계 1번 더(하루 2번까지).
 
 ## 6. 편집 (ffmpeg 만)
-- `onscreen_text` 가 있으면 한글 훅 자막을 처음 1.5초 위쪽에 `drawtext`(Pretendard ExtraBold, 흰 글자 + 검은 테두리)로 넣는다. 없으면 넣지 않는다.
+- `onscreen_text` 가 있으면 한글 훅 자막을 처음 1.5초 위쪽에 넣는다(0절 swift PNG + overlay — drawtext 없음). 없으면 넣지 않는다.
 - 끝 0.8초에 작게 `브리디` 한 줄(선택). Gemini 별 워터마크(오른쪽 아래)는 `delogo` 로 지운다.
 - 결과 `final.mp4`. 배경음은 넣지 않는다.
 
