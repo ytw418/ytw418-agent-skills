@@ -35,6 +35,9 @@ HANGUL_RE = re.compile(r"[가-힣]")
 # "안 썼으니 지우자"는 결론이 나오면 안 된다.
 NEVER_PRUNE = {"skills": {"skill-creator", "find-skills", "init-bhsn", "token-diet"}}
 
+# 방금 추가한 스킬은 호출 이력이 없는 게 당연하다. 판단을 유예한다.
+TOO_NEW_DAYS = 14
+
 TOOL_RE = re.compile(r'"name":\s*"mcp__([A-Za-z0-9_]+?)__')
 SKILL_RE = re.compile(r'"skill":\s*"([^"]+)"')
 
@@ -101,10 +104,16 @@ def collect_skills():
     found = {}
     if not SKILLS_DIR.is_dir():
         return found
+    new_cutoff = time.time() - TOO_NEW_DAYS * 86400
     for md in SKILLS_DIR.glob("*/SKILL.md"):
         name = md.parent.name
+        try:
+            # 심링크가 아니라 실제 원본 파일의 시각을 본다
+            is_new = md.resolve().stat().st_mtime > new_cutoff
+        except OSError:
+            is_new = False
         # name+description 전체가 시스템 프롬프트에 들어간다
-        found[name] = (md.parent, est_tokens(name + read_description(md)))
+        found[name] = (md.parent, est_tokens(name + read_description(md)), is_new)
     return found
 
 
@@ -170,10 +179,13 @@ def main():
         (
             (n, meta[1])
             for n, meta in installed_skills.items()
-            if skills_used.get(n, 0) == 0 and n not in NEVER_PRUNE["skills"]
+            if skills_used.get(n, 0) == 0
+            and n not in NEVER_PRUNE["skills"]
+            and not meta[2]
         ),
         key=lambda x: -x[1],
     )
+    too_new = sorted(n for n, meta in installed_skills.items() if meta[2])
     unused_agents = sorted(
         ((n, meta[1]) for n, meta in installed_agents.items() if n not in skills_used),
         key=lambda x: -x[1],
@@ -190,6 +202,7 @@ def main():
                 "servers_used": servers_used.most_common(),
                 "skills_used": skills_used.most_common(),
                 "unused_skills": unused_skills,
+                "too_new_to_judge": too_new,
                 "unused_agents": unused_agents,
                 "unused_servers": unused_servers,
                 "memory_files": [[str(p), t] for p, t in memory_files()],
@@ -225,6 +238,9 @@ def main():
     print(f"  미사용 description 합계 약 {total:,} 토큰 (매 세션 상시 로드)\n")
     for name, tok in unused_skills:
         print(f"  ~{tok:>5} tok  {name}")
+    if too_new:
+        print(f"\n  최근 {TOO_NEW_DAYS}일 내 추가되어 판단 유예 ({len(too_new)}개):")
+        print(f"      {', '.join(too_new)}")
 
     if unused_agents:
         section(f"서브에이전트 — 미사용 {len(unused_agents)}개")
