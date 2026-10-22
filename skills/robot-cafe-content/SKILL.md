@@ -9,7 +9,8 @@ description: 로봇천국 네이버 카페(cafe.naver.com/zxgamezx)에 운영 �
 
 - 데이터 폴더 `~/Desktop/pro/robot-cafe` — 날짜별 기록(`content/<YYYY-MM-DD>/`), PRD
 - 계정은 운영자 본계정(카페 별명 kingdom). 본계정이 카페 5개를 운영하므로 **하루 최대 3개, 글 사이 2시간 이상**을 반드시 지킨다.
-- 편성표는 `scripts/calendar.json`: 아침(morning) 로봇 뉴스, 점심(lunch) 분야별 정보글, 저녁(evening) 정보 게시판 글. 토요일 저녁은 쉰다.
+- 편성표는 `scripts/calendar.json`: 아침(morning) 로봇 뉴스, 점심(lunch) 분야별 정보글(화·목은 회원 참여 글 ask), 저녁(evening) 정보 게시판 글. 토요일 저녁은 쉰다.
+- 회원이 댓글을 달 수 있게 한다(사용자 요청 2026-10-20): news 마지막 줄은 오늘 소식 중 고르게 하는 질문, 화·목 점심은 운영자가 대놓고 묻는 참여 글(ask). 운영자 이름으로 묻는 것이라 가짜 질문(P-6.8)이 아니다 — 회원인 척 도움을 청하거나 자작 댓글로 답하지 않는다.
 
 ## 쓰지 않는 게시판
 
@@ -23,7 +24,7 @@ SLOT=morning   # 또는 lunch / evening — 요청이나 일정 문구에서 정
 ```
 
 1. **준비** — `python3 $S/prepare.py $SLOT` → JSON 한 개(편성 확인 + 한도 확인 + 주제·중복 자료를 한 번에, 브라우저는 열지 않는다). `proceed:false` 면 `reason` 을 보고하고 끝낸다(종료 코드 3 쉬는 칸 / 1 한도에 걸림·오늘 이 칸을 이미 올림). 쓰는 키: `board`·`head`·`kind`, `files`(title·body·sources 경로), `research`(조사 종류), `used_urls`(30일 안에 쓴 기사 주소 — 겹치지 않게), `board_titles`(그 게시판에 쓴 제목 — 주제 중복 방지, guide는 [references/topics.md](references/topics.md)에서 안 쓴 주제를 고른다), `yesterday_candidates`(news일 때 어제 이전 후보 파일 경로 — 읽는다). head에 `|`가 있으면 주제에 맞는 하나를 골라 4단계에 `--head`로 준다.
-2. **조사** — `Agent(subagent_type: general-purpose, model: sonnet)`에 [references/research-prompt.md](references/research-prompt.md)의 종류별 요청문(news·guide·jobs·events)을 채워 넘기고 결과를 기다린다. talk는 조사하지 않고 이번 주 `content/*/log.md`의 글을 쓴다. 받은 JSON을 `$D/$SLOT-sources.json`에 저장한다(news는 쓰지 않은 검증 소식을 `$D/candidates.md`에도). `$D`는 prepare의 `dir`.
+2. **조사** — `Agent(subagent_type: general-purpose, model: sonnet)`에 [references/research-prompt.md](references/research-prompt.md)의 종류별 요청문(news·guide·jobs·events)을 채워 넘기고 결과를 기다린다. talk는 조사하지 않고 이번 주 `content/*/log.md`의 글을 쓴다. ask는 조사하지 않는다(사실을 적는다면 이번 주 카페 글에 나온 것만). 받은 JSON을 `$D/$SLOT-sources.json`에 저장한다(news는 쓰지 않은 검증 소식을 `$D/candidates.md`에도). `$D`는 prepare의 `dir`.
 3. **작성** — [references/style.md](references/style.md)의 종류별 구조·말투대로 `$D/$SLOT-title.txt`, `$D/$SLOT-body.txt`를 쓴다.
 4. **등록** — `python3 $S/publish.py $SLOT [--head <말머리>]` 를 **Bash 포그라운드, timeout 600000** 으로 실행한다(2~6분). 검사(lint --fetch) → 한도 → 브라우저 준비 → 글쓰기 화면 입력·원문 대조·등록 → 비로그인 확인 → 기록(log.py) → 탭·잠금 정리를 한 번에 하고 결과 JSON 한 개를 낸다. **백그라운드로 돌리고 알림을 기다린다고 답하지 않는다** — 일정 세션이 거기서 끝나 기록·확인이 빠진다(10-20 점심, 10-21 아침·점심이 그렇게 안 올라갔다). 결과(`ok`·`code`·`message`)별 처리:
    - `ok:true` — 끝. `url`·`title` 을 보고에 쓴다. (같은 칸을 두 번 올리지 않는다: 성공하면 `$SLOT-published.json` 이 남고, 다시 실행하면 멈춘다.)
