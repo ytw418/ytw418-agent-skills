@@ -140,6 +140,8 @@ ALLIBEE-224
 
 ## 리액트 큐 demo 배포 (allibee-frontend-react → 큐 demo)
 
+> **스크립트로 한 번에**: 큐+리액트 큐 dev·demo 는 `scripts/cue-deploy.sh <dev|demo|dev,demo> [--dry-run]` 로 한다. 먼저 `--dry-run` 으로 나갈 커밋·티켓을 사용자에게 알리고 실행한다. 리액트가 지난 발행과 같으면 발행을 건너뛰고, demo 는 리액트 master·큐 cue/master 를 ff 로 올린 뒤, 발행 성공 → 큐 배포 → 임베드 digest 일치까지 확인하고 티켓 목록을 출력한다. QA존 공지·Jira 상태 전이는 출력된 티켓으로 사용자 확인 뒤 따로 한다. 아래 수동 절차는 스크립트가 실패했을 때 쓴다.
+
 "리액트 큐 demo 배포해줘"는 이 순서로 한다. 큐 demo(`demo.one.allibee.ai`)는 **큐 이미지를 빌드할 때** React MFE 이미지(`cue-demo-current`)를 꺼내 넣으므로, MFE 발행이 끝나기 전에 큐 배포를 돌리면 옛 React가 들어간다.
 
 | 단계 | 레포 | ref | 워크플로우 |
