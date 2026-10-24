@@ -5,6 +5,9 @@ description: 브리디 앱(bredy_app, Expo)을 운영에 내보낸다. JS 만 �
 
 # 브리디 앱 배포 (코드푸시 · Android · iOS)
 
+> **운영 배포는 사용자가 그 메시지에서 직접 지시했을 때만 한다(2026-10-25 사용자 결정).** 다른 작업 끝에 알아서 이어 하지 않는다 — dev·브랜치까지만 하고 허락을 묻는다. 훅 `~/.claude/hooks/prod-deploy-guard.py` 가 막는다(~/.claude/CLAUDE.md §13).
+
+
 - 레포: `/Users/yoonseongjun/Desktop/pro/bredy_app`, 브랜치 `master`(여러 세션이 같이 쓴다 — 내 변경만 커밋).
 - 2026-10-16 Play 프로덕션, 10-20 App Store 출시 뒤의 절차다. 상세 배경은 앱 `docs/ota-update.md`.
 - 스크립트는 모두 앱 저장소 `scripts/` 에 있다.

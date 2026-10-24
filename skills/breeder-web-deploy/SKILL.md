@@ -5,6 +5,9 @@ description: 브리디 웹(breeder_web, Next.js)을 운영에 배포한다. dev 
 
 # 브리디 웹 배포 (dev → main)
 
+> **운영 배포는 사용자가 그 메시지에서 직접 지시했을 때만 한다(2026-10-25 사용자 결정).** 다른 작업 끝에 알아서 이어 하지 않는다 — dev·브랜치까지만 하고 허락을 묻는다. 훅 `~/.claude/hooks/prod-deploy-guard.py` 가 막는다(~/.claude/CLAUDE.md §13).
+
+
 - 레포: `/Users/yoonseongjun/Desktop/pro/breeder_web` (`ytw418/breeder_web`)
 - 배포 = `dev` → `main` PR을 **머지 커밋**으로 머지. Vercel이 main을 운영에 자동 배포한다.
 - `dev` 브랜치는 절대 지우지 않는다(`--delete-branch` 금지).
