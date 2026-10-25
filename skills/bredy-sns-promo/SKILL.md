@@ -39,7 +39,7 @@ sips -Z 400 output/<폴더>/card.png --out /tmp/preview.png   # Read 로 열어 
 ## 4. 올리기
 ```bash
 zsh  scripts/post-carousel.sh <caption.txt> <card.png>                  # 인스타
-bash scripts/threads-media.sh <caption.txt> 크레스티드게코 <card.png>     # 스레드 (주제)
+bash scripts/threads-media.sh <caption.txt> pets <card.png>     # 스레드 (주제는 스크립트가 항상 pets 로 고정, 2026-10-25)
 bash scripts/x-post.sh <x.txt> <card.png>                               # X
 python3 blog/naver-photos.py <body.txt> "<제목>" "브리디 소식" "태그,태그" <카드...>   # 블로그
 ```

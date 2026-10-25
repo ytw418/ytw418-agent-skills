@@ -329,6 +329,14 @@ git push origin <current branch name>
 - **훅이 강제한다**: `~/.claude/hooks/usage-budget.py`(UserPromptSubmit·PreToolUse). 질문 시작 뒤 쓴 토큰(서브에이전트 포함)을 주간 % 로 환산해 예산의 2/3 근처에서 점검하라고 알리고, 5%를 넘으면 도구 호출을 막는다. 막히면 우회하지 말고 ① 한 것 ② 남은 일 ③ 줄일 방법을 보고하고 멈춘다. 사용자가 프롬프트에 `예산 N%`(예: `계속 예산 10%`)를 쓰면 그 질문만 예산이 N%다.
 - 환산 기준은 `~/.claude/hooks/usage-budget.json`(없으면 기본값: 1% = 가중 57만 토큰, 언니노트 기획 세션 기준)으로 고친다. 세션 재기: `python3 ~/.claude/hooks/usage-budget.py --measure <transcript.jsonl>`.
 
+## 13. 운영 배포는 지시·허락이 있을 때만 (MANDATORY, 2026-10-25 사용자 결정)
+
+"운영에 배포하는 건 내가 시킬 때만 하는 거야. 아니면 나한테 허락을 받거나." 2026-10-25 게시글 전체 화면 작업에서 지시 없이 앱 코드푸시와 웹 운영 릴리스(v1.48.0)를 내보냈다. 회사·개인 저장소 모두 적용한다.
+
+- 운영 배포 = main(production) 대상 PR 머지·main 푸시, Vercel 운영 배포·재배포·승격·롤백, 앱 코드푸시(`ota:update`·`eas update`·롤백), 스토어 제출·운영 빌드, Play 출시·App Store 심사 제출, 운영 배포 워크플로 실행.
+- 사용자가 **그 메시지에서** 배포를 직접 지시했을 때만 한다("배포해", "코드푸시해", "운영까지 반영"). 이전 메시지의 지시·"다 승인할게"는 다음 작업으로 이어지지 않는다. 아니면 dev·브랜치까지만 하고, 무엇을 운영에 낼지(포함 변경·버전·되돌리는 법)를 보여 주고 허락을 묻는다.
+- 훅 `~/.claude/hooks/prod-deploy-guard.py`(UserPromptSubmit 이 그 메시지의 허락을 기록, PreToolUse 가 운영 배포 명령을 막음)가 강제한다. 막히면 우회하지 말고 허락을 받는다. 규칙을 바꾸면 `python3 ~/.claude/hooks/prod-deploy-guard_test.py` 를 돌린다.
+
 ## 10. Quick Reference
 
 If you are an AI coding assistant:
@@ -344,4 +352,5 @@ If you are an AI coding assistant:
 - **(회사 저장소) Prefix every commit message** with `[XX-XXXX]`.
 - **반복 가능한 작업** — 작업 완료 후 반복 가능성이 있으면 `/skill-creator`로 스킬화를 제안하고, 생성된 스킬은 반드시 커밋한다.
 - **사용량 예산** — 질문 하나 주간 5% 이하. 쉬운·반복 작업은 sonnet·`/effort low` 권유, 반복은 스크립트화, 훅이 넘으면 막는다(§12).
+- **운영 배포** — 사용자가 그 메시지에서 지시했을 때만. 아니면 허락을 묻는다. 훅 prod-deploy-guard 가 막는다(§13).
 - **모델 분업** — 기본 Opus. 버그 수정은 Opus가 하고 판단이 막히면 그 판단만 Fable에(결과를 기다린다), Fable 설계 위임은 구현이 큰 기능 작업에만(결과를 기다린다). 파일 3개 이상 훑기는 `Explore`(haiku/sonnet). 서브에이전트 `model`은 항상 명시한다.
