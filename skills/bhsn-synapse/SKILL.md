@@ -1,18 +1,18 @@
 ---
 name: bhsn-synapse
-description: BHSN(앨리비·큐) 제품 기획·CS 에 쓸 자료를 로컬 지식 폴더 ~/Desktop/bhsn/bhsn-synapse 에 모으고, 거기서 찾아 근거와 함께 답한다. 노션 페이지를 하위 페이지·DB 까지 Markdown·CSV 로 받기(회사 자동화 크롬의 노션 로그인 사용), 회사 PostHog(posthog-bhsn MCP) 지표를 날짜별 기록으로 남기기, 컨플루언스 문서를 찾아 필요한 것을 저장하기, 폴더 README 자료 목록 갱신까지 한다. 사용자가 '시냅스', 'bhsn-synapse', '자료 모아줘', 'CS 내역 받아줘', '디스커버리 콜 다시 받아', '노션 페이지 시냅스에 넣어', '고객이 뭐라고 했는지 찾아줘', '기획 자료 찾아줘', 'PostHog 지표 저장해 둬', '컨플 문서 모아줘' 등을 요청하거나, BHSN 기획·CS 질문에 근거 자료가 필요할 때 사용한다. 브리디 자료(bredy-*), Jira 티켓 작업(jira-bhsn), 착수 검토(kickoff), PRD 작성(hjjm-prd)에는 쓰지 않는다.
+description: BHSN(앨리비·큐) 제품 기획·CS 에 쓸 자료를 로컬 지식 폴더 ~/Desktop/bhsn/bhsn-synapse 에 모으고, 거기서 찾아 근거와 함께 답한다. 큐(Cue) 현황 한 장 요약과 주제별 요약(기능 PRD·공통정책·통합 allibee·최근 진행·지표)이 있다. 노션 페이지를 하위 페이지·DB 까지 Markdown·CSV 로 받기, 컨플루언스 최근 문서를 받아 요약과 원본 링크로 갱신하기, 회사 PostHog(posthog-bhsn MCP) 지표를 날짜별 기록으로 남기기, 폴더 README 목록 갱신까지 한다. 사용자가 '시냅스', 'bhsn-synapse', '큐 현황', '큐 정책 뭐였지', '요금제·크레딧 정책', '자료 모아줘', 'CS 내역 받아줘', '디스커버리 콜 다시 받아', '노션 페이지 시냅스에 넣어', '컨플 최근 문서 갱신해', '고객이 뭐라고 했는지 찾아줘', '기획 자료 찾아줘', 'PostHog 지표 저장해 둬' 등을 요청하거나, 큐 기능·정책·요금·진행 상황을 알아야 답하거나 작업할 수 있을 때 사용한다. 브리디 자료(bredy-*), Jira 티켓 작업(jira-bhsn), 착수 검토(kickoff), PRD 작성(hjjm-prd)에는 쓰지 않는다.
 ---
 
 # bhsn-synapse
 
-BHSN 기획·CS 자료를 `~/Desktop/bhsn/bhsn-synapse/` 에 모은다. 출처 주소·ID·받은 날은 그 폴더의 `README.md` 가 기준이니 먼저 읽는다. 이 스킬 저장소는 공개라서 회사 주소·ID·고객 정보는 여기에 쓰지 않고 README 에만 쓴다.
+BHSN 기획·CS 자료를 `~/Desktop/bhsn/bhsn-synapse/` 에 모은다. 출처 주소·ID·받은 날·갱신 조건은 그 폴더의 `README.md` 가 기준이니 먼저 읽는다. 이 스킬 저장소는 공개라서 회사 주소·ID·고객 정보는 여기에 쓰지 않고 README 에만 쓴다.
 
 ## 찾기
 
-1. README 의 자료 목록으로 볼 폴더를 고른다.
+1. 큐 질문이면 `컨플루언스/큐/README.md`(현황 한 장)부터 읽고, 필요한 주제 파일로 내려간다. 다른 질문은 폴더 README 의 자료 목록으로 볼 곳을 고른다.
 2. `rg -i "<키워드>" ~/Desktop/bhsn/bhsn-synapse` (없으면 `grep -rni`)로 찾고, 맞는 파일만 읽는다. CSV 는 필요한 열만 골라 본다.
-3. 없거나 오래됐으면 원본에서 찾는다. 노션은 다시 받고, 컨플루언스는 Atlassian MCP `confluence_search`, 수치는 `posthog-bhsn` 으로 본다.
-4. 답에는 근거 파일·원본 링크·받은 날을 붙인다. 고객 이름·연락처는 꼭 필요할 때만 쓴다.
+3. 없거나 오래됐으면 원본에서 찾는다. 노션은 다시 받고, 컨플루언스는 `목록.md` 의 원문 링크나 Atlassian MCP `confluence_search`·`confluence_get_page`, 수치는 `posthog-bhsn` 으로 본다.
+4. 답에는 근거 파일·원본 링크·수정일을 붙인다. 요약의 `[상충]`·`차이:` 항목은 확정된 값처럼 말하지 않는다. 고객 이름·연락처는 꼭 필요할 때만 쓴다.
 
 ## 모으기
 
@@ -30,16 +30,27 @@ node ~/.claude/skills/bhsn-synapse/scripts/notion-export.mjs <노션 페이지 U
 - 같은 폴더에 다시 받으면 덮어쓴다. 노션에서 지우거나 이름을 바꾼 페이지까지 맞추려면 그 하위 폴더를 지우고 받는다.
 - 노션 내부 API 를 쓰므로 노션이 바꾸면 깨질 수 있다. 작업이 `not_started` 에 머물면 공간·사용자 헤더 문제다(스크립트 주석 참고).
 
+### 컨플루언스
+
+원문은 용량 때문에 저장하지 않고, 주제별 요약과 원문 링크만 둔다. 받을 범위(CQL·경로 정규식)는 폴더 README 에 있다.
+
+1. 읽을 원문을 임시 폴더로 받는다. 인증은 `~/.claude.json` 의 atlassian MCP 설정을 쓴다.
+   ```sh
+   uv run -q --no-project --with markdownify python -I ~/.claude/skills/bhsn-synapse/scripts/confluence-fetch.py '<CQL>' /tmp/<새 폴더> '<경로 정규식>'
+   ```
+   쪽수·글자 수를 출력하고, 제목·링크·수정일을 담은 `목록.md` 를 만든다. 본문 링크·이미지는 뺀다.
+2. 주제 묶음(30쪽·10만 자 안팎)마다 하위 에이전트에게 요약을 맡긴다. 지킬 규칙:
+   - 항목마다 원문 링크(머리말 url)와 수정일을 붙인다.
+   - 문서끼리 다르면 최신 값을 따르고 `[상충]` 으로 표시한다.
+   - 고객·개인 정보, 계정, 토큰은 뺀다.
+   - 파일 하나에 8천 자 안팎으로 쓴다.
+3. 주제 파일과 현황 한 장(`README.md`)을 고치고 `목록.md` 를 바꾼 뒤 임시 폴더를 지운다. 갱신할 때는 지난 요약 날짜 뒤에 수정된 문서만 받아 바뀐 부분만 반영한다.
+
 ### PostHog (`posthog-bhsn`)
 
 - 회사 PostHog 는 Claude Code MCP `posthog-bhsn`(개인 키, 읽기·쓰기)이다. 브리디 PostHog(claude.ai 커넥터)와 섞이지 않게 시작할 때 `project-get` 으로 프로젝트를 확인한다.
 - 지표를 남길 때는 `지표/<YYYY-MM-DD>-<주제>.md` 에 질문, 결과 표, 다시 돌릴 HogQL 이나 인사이트 링크를 함께 쓴다.
 - 쓰기(인사이트·대시보드·주석)는 사용자가 시킬 때만 한다. 기능 플래그·실험은 운영 동작이 바로 바뀌니 바꾸기 전에 확인받는다.
-
-### 컨플루언스
-
-- 평소에는 Atlassian MCP `confluence_search`(CQL)로 찾고 `confluence_get_page` 로 읽는다.
-- 자주 쓸 문서는 `컨플루언스/<스페이스>/<제목>.md` 로 저장하고, 맨 위에 원본 URL·마지막 수정일을 적는다.
 
 ## 지킬 것
 
