@@ -104,59 +104,65 @@ try {
         }
     })();
 
-    await label("1. 설정 > 사용량 — '사용자별 사용량' 탭 추가", ['마스터에게만 보인다(멤버·게스트는 전체 사용량만)', "기존 화면은 '전체 사용량' 탭으로"]);
+    await label("1. 설정 > 사용량 — '사용자별 사용량'·'크레딧 변경내역' 탭", ['마스터에게만 보인다, 모든 플랜에서 제공', "기존 화면은 '전체 사용량' 탭으로"]);
     await sleep(1800);
     await moveTo('button[role="tab"]', '사용자별 사용량', { click: true });
     await waitFor(tableReady);
-    await label('2. 구성원별 사용량 — 기본 이번 달, AI 크레딧 많은 순', ['요약: 총 AI 크레딧 · 사용 구성원 / 현재 구성원', '구성원 · 역할 · AI 크레딧(%·막대) · 기능별 건수 · 계약서 등록']);
-    await sleep(2600);
+    await label('2. 구성원별 사용량 — 총 사용량(토큰)과 기능별 토큰', ['기본 이번 달, 총 사용량 많은 순', '전자서명 발송·계약서 등록은 건수']);
+    await sleep(2800);
     await shot('usage-01-members-tab');
 
-    await label('3. AI 크레딧에 마우스를 올리면 기능별 크레딧', ["라벨은 '전체 사용량' 탭의 기능별 크레딧과 같다"]);
-    await moveTo('tbody tr:nth-child(1) [role="progressbar"]', '', { hold: 2600 });
+    await label('3. 표를 오른쪽으로 넘기면 전자서명 발송(건)·계약서 등록(건)', ['토큰이 없는 기능은 건수로 — 열이 9개라 가로로 넘긴다']);
+    const scrollX = to => c.evaluate(`(() => { let el = document.querySelector('table').parentElement; while (el && getComputedStyle(el).overflowX === 'visible') el = el.parentElement; el.scrollTo({ left: ${to} === 'end' ? el.scrollWidth : 0, behavior: 'smooth' }); return el.scrollWidth - el.clientWidth; })()`);
+    await moveTo('tbody tr:nth-child(2) td:nth-child(4)', '');
+    await scrollX("'end'");
+    await sleep(2600);
+    await shot('usage-07-count-columns');
+    await scrollX('0');
+    await sleep(900);
+
+    await label('4. 총 사용량에 마우스를 올리면 AI 크레딧', ['AI 크레딧 합계와 기능별 크레딧']);
+    await moveTo('tbody tr:nth-child(1) [data-testid="member-usage-tokens"]', '', { hold: 2800 });
     await shot('usage-02-credit-tooltip');
 
-    await label('4. 기간 — 이번 달·지난 달·최근 3개월·직접 선택', ['최대 1년, 미래 날짜는 고를 수 없다']);
+    await label('5. 기간 — 이번 달·지난 달·최근 3개월·직접 선택', ['최대 1년, 미래 날짜는 고를 수 없다']);
     await moveTo('button[role="tab"]', '지난 달', { click: true, hold: 2200 });
     await moveTo('button[role="tab"]', '최근 3개월', { click: true, hold: 2400 });
     await shot('usage-03-last-3-months');
 
-    await label('5. 정렬 — 열 머리글로 오름·내림, 다시 불러오지 않는다', ['기타(사용자 정보 없음) 행은 항상 맨 아래']);
-    await moveTo('th button', 'AI 물어보기', { click: true, hold: 1700 });
-    await moveTo('th button', 'AI 물어보기', { click: true, hold: 1900 });
+    await label('6. 정렬 — 기능별 토큰 열로도 오름·내림', ['다시 불러오지 않고 화면에서, 기타 행은 늘 맨 아래']);
+    await moveTo('th button', '계약서 검토', { click: true, hold: 1700 });
+    await moveTo('th button', '계약서 검토', { click: true, hold: 1900 });
 
-    await label('6. 내보낸 구성원·탈퇴한 사용자·게스트·기타 행', ['기간 안에 기록이 있으면 표에 남는다 — 합계가 전체 사용량과 맞도록']);
+    await label('7. 내보낸 구성원·탈퇴한 사용자·게스트·기타 행', ['기간 안에 기록이 있으면 표에 남는다 — 합계가 전체 사용량과 맞도록']);
     await c.evaluate(`(document.querySelector('tbody tr:last-child').scrollIntoView({ block: 'center' }), 1)`);
     await moveTo('tbody tr:last-child', '', { hold: 2600 });
     await shot('usage-04-status-badges');
 
-    await label('7. 엑셀 다운로드 — 지금 기간·정렬 그대로', ['받는 중에는 버튼만 로딩, 실패하면 토스트']);
+    await label('8. 엑셀 다운로드 — 지금 기간·정렬 그대로', ['받는 중에는 버튼만 로딩, 실패하면 토스트']);
     await moveTo('button', '엑셀 다운로드', { click: true, hold: 2800 });
 
-    await c.evaluate(`localStorage.setItem('${KEY}', 'plan')`);
-    await label('8. 플랜 미지원 — Team 300 미만은 잠금 화면', ["'요금제 보기'로 요금제 화면에 간다"]);
-    await moveTo('button[role="tab"]', '이번 달', { click: true });
-    await waitFor(`document.body.innerText.includes('Team 300 이상')`, 10000);
-    await sleep(2600);
-    await shot('usage-05-plan-locked');
+    await label('9. 크레딧 변경내역 — 충전·플랜 지급·이벤트·가입 축하·관리자 조정·만료', ['실제 API(GET /credits/event-histories/v1) 데이터', '+ 지급 / − 차감, 지급분은 유효기한']);
+    await moveTo('button[role="tab"]', '크레딧 변경내역', { click: true });
+    await waitFor(`document.querySelectorAll('tbody tr').length > 0 || document.body.innerText.includes('변경내역이 없어요')`, 15000);
+    await sleep(2800);
+    await shot('usage-05-credit-history');
+
+    await label('10. 사용 내역 포함 — 사용(−)까지 함께', []);
+    await moveTo('label:has([data-testid="credit-history-include-consume"])', '', { click: true });
+    await sleep(2800);
+    await shot('usage-06-credit-history-with-usage');
+    if (await has('[data-testid="credit-history-load-more"]')) {
+        await label('11. 더 보기 — 20건씩 이어 받는다', []);
+        await moveTo('[data-testid="credit-history-load-more"]', '', { click: true, hold: 2600 });
+    }
 
     await c.evaluate(`localStorage.setItem('${KEY}', 'error')`);
-    await label('9. 불러오기 실패 — 다시 시도로 다시 불러온다');
-    // 새로고침 대신 탭을 오가며 다시 불러온다 — 잠금 화면에는 기간 프리셋이 없다
-    const errorShown = `document.body.innerText.includes('불러오지 못했어요')`;
-    await moveTo('button[role="tab"]', '전체 사용량', { click: true, hold: 900 });
+    await label('12. 불러오기 실패 — 다시 시도로 다시 불러온다');
+    const errorShown = `document.body.innerText.includes('사용량을 불러오지 못했어요')`;
     await moveTo('button[role="tab"]', '사용자별 사용량', { click: true });
-    try {
-        await waitFor(errorShown, 4000);
-    } catch {
-        await c.send('Page.navigate', { url: `${base}?tab=members` });
-        await waitFor(`document.readyState === 'complete' && !!document.querySelector('button[role="tab"]')`, 30000);
-        await c.evaluate(OVERLAY);
-        await label('9. 불러오기 실패 — 다시 시도로 다시 불러온다');
-        await waitFor(errorShown, 10000);
-    }
+    await waitFor(errorShown, 10000);
     await sleep(2000);
-    await shot('usage-06-load-failed');
     await c.evaluate(`localStorage.removeItem('${KEY}')`);
     await moveTo('button', '다시 시도', { click: true });
     await waitFor(tableReady, 10000);
