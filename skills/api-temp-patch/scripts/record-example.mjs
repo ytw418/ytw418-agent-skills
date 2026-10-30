@@ -15,7 +15,8 @@ rmSync(downloads, { recursive: true, force: true });
 mkdirSync(frames, { recursive: true });
 const CDP = 'http://127.0.0.1:9224';
 const KEY = 'ALLIBEE_1679_FAKE_USAGE_MEMBERS';
-const base = `https://localhost:5173/${ws}/settings/usage`;
+// 5173 을 다른 작업이 쓰면 다른 포트로 띄우고 CUE_ORIGIN 으로 넘긴다(로그인 저장소는 포트마다 따로라 옮겨 줘야 한다)
+const base = `${process.env.CUE_ORIGIN ?? 'https://localhost:5173'}/${ws}/settings/usage`;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 const tab = await (await fetch(`${CDP}/json/new?${encodeURI(base)}`, { method: 'PUT' })).json();
@@ -27,8 +28,9 @@ let loop;
 const OVERLAY = `(() => {
     if (document.getElementById('__rec_label')) return true;
     const st = document.createElement('style');
-    st.textContent = '#__rec_label{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:2147483647;background:rgba(12,12,15,.86);color:#fff;border-radius:14px;padding:12px 20px;min-width:520px;max-width:980px;font:500 13.5px/1.5 Pretendard,-apple-system,sans-serif;pointer-events:none}'
-        + '#__rec_label h3{font-size:16px;font-weight:700;margin:0 0 4px}#__rec_label ul{margin:0;padding:0}#__rec_label li{list-style:none;color:#E1E3EB}#__rec_label li:before{content:"· ";color:#12E575}'
+    // 라벨은 왼쪽 메뉴 아래 빈 자리에 둬서 본문(표 아래쪽 행)을 가리지 않는다
+    st.textContent = '#__rec_label{position:fixed;left:12px;bottom:16px;width:196px;z-index:2147483647;background:rgba(12,12,15,.88);color:#fff;border-radius:12px;padding:12px 14px;font:500 12.5px/1.5 Pretendard,-apple-system,sans-serif;pointer-events:none}'
+        + '#__rec_label h3{font-size:14px;font-weight:700;margin:0 0 6px}#__rec_label ul{margin:0;padding:0}#__rec_label li{list-style:none;color:#E1E3EB}#__rec_label li:before{content:"· ";color:#12E575}'
         + '#__rec_cursor{position:fixed;z-index:2147483647;width:22px;height:22px;pointer-events:none;left:1100px;top:640px;transition:left .45s ease,top .45s ease}'
         + '#__rec_ripple{position:fixed;z-index:2147483646;border:3px solid #00C763;border-radius:50%;pointer-events:none;opacity:0}';
     document.head.appendChild(st);
@@ -36,6 +38,8 @@ const OVERLAY = `(() => {
     const k = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); k.id = '__rec_cursor'; k.setAttribute('viewBox', '0 0 22 22');
     k.innerHTML = '<path d="M3 2l14 8.5-6.2 1.3 3.6 6.6-2.6 1.4-3.6-6.6L3.6 17z" fill="#0C0C0F" stroke="#fff" stroke-width="1.4"/>'; document.body.appendChild(k);
     const r = document.createElement('div'); r.id = '__rec_ripple'; document.body.appendChild(r);
+    // 로컬 개발용 'Dev Tools' 떠 있는 창은 녹화에서만 숨긴다
+    [...document.querySelectorAll('body *')].filter(e => getComputedStyle(e).position === 'fixed' && /^Dev Tools/.test(e.textContent.trim())).forEach(e => { e.style.display = 'none'; });
     window.__recLabel = (t, cs) => {
         l.replaceChildren(); l.style.display = t ? '' : 'none';
         const h = document.createElement('h3'); h.textContent = t; l.appendChild(h);
@@ -90,7 +94,10 @@ try {
             const t = Date.now();
             try {
                 const f = join(frames, `f${String(i).padStart(5, '0')}.jpg`);
-                writeFileSync(f, Buffer.from((await c.send('Page.captureScreenshot', { format: 'jpeg', quality: 82 })).data, 'base64'));
+                // 페이지가 다시 그려지는 순간 캡처 요청이 응답 없이 멈출 수 있어 2.5초가 넘으면 건너뛴다(멈추면 그 뒤 장면이 통째로 빠진다)
+                const shotP = c.send('Page.captureScreenshot', { format: 'jpeg', quality: 82 });
+                const { data } = await Promise.race([shotP, sleep(2500).then(() => { throw new Error('캡처 지연'); })]);
+                writeFileSync(f, Buffer.from(data, 'base64'));
                 stamps.push([f, t]);
             } catch {}
             await sleep(Math.max(0, 110 - (Date.now() - t)));
@@ -119,6 +126,7 @@ try {
     await moveTo('th button', 'AI 물어보기', { click: true, hold: 1900 });
 
     await label('6. 내보낸 구성원·탈퇴한 사용자·게스트·기타 행', ['기간 안에 기록이 있으면 표에 남는다 — 합계가 전체 사용량과 맞도록']);
+    await c.evaluate(`(document.querySelector('tbody tr:last-child').scrollIntoView({ block: 'center' }), 1)`);
     await moveTo('tbody tr:last-child', '', { hold: 2600 });
     await shot('usage-04-status-badges');
 
@@ -133,16 +141,20 @@ try {
     await shot('usage-05-plan-locked');
 
     await c.evaluate(`localStorage.setItem('${KEY}', 'error')`);
-    if (await has('button[role="tab"]', '지난 달')) {
-        await label('9. 불러오기 실패 — 다시 시도로 다시 불러온다');
-        await moveTo('button[role="tab"]', '지난 달', { click: true });
-    } else {
+    await label('9. 불러오기 실패 — 다시 시도로 다시 불러온다');
+    // 새로고침 대신 탭을 오가며 다시 불러온다 — 잠금 화면에는 기간 프리셋이 없다
+    const errorShown = `document.body.innerText.includes('불러오지 못했어요')`;
+    await moveTo('button[role="tab"]', '전체 사용량', { click: true, hold: 900 });
+    await moveTo('button[role="tab"]', '사용자별 사용량', { click: true });
+    try {
+        await waitFor(errorShown, 4000);
+    } catch {
         await c.send('Page.navigate', { url: `${base}?tab=members` });
         await waitFor(`document.readyState === 'complete' && !!document.querySelector('button[role="tab"]')`, 30000);
         await c.evaluate(OVERLAY);
         await label('9. 불러오기 실패 — 다시 시도로 다시 불러온다');
+        await waitFor(errorShown, 10000);
     }
-    await waitFor(`document.body.innerText.includes('불러오지 못했어요')`, 10000);
     await sleep(2000);
     await shot('usage-06-load-failed');
     await c.evaluate(`localStorage.removeItem('${KEY}')`);
