@@ -1,0 +1,168 @@
+// 로그인된 로컬 cue(https://localhost:5173)의 '사용자별 사용량' 탭을 회사 자동화 크롬(9224)의 자기 탭에서 조작하며 녹화한다.
+// 화면 아래 단계 라벨·가짜 커서를 띄우고, 화면을 연속 캡처해 ffmpeg 로 영상을 만든다. 탭은 끝나면 닫는다.
+// node record-app.mjs <워크스페이스 경로> <outDir>
+import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { join, resolve } from 'node:path';
+import { connect } from './cdp.mjs';
+
+const [ws, outArg] = process.argv.slice(2);
+const out = resolve(outArg);
+const frames = join(out, 'frames');
+const downloads = join(out, 'download');
+rmSync(frames, { recursive: true, force: true });
+rmSync(downloads, { recursive: true, force: true });
+mkdirSync(frames, { recursive: true });
+const CDP = 'http://127.0.0.1:9224';
+const KEY = 'ALLIBEE_1679_FAKE_USAGE_MEMBERS';
+const base = `https://localhost:5173/${ws}/settings/usage`;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+const tab = await (await fetch(`${CDP}/json/new?${encodeURI(base)}`, { method: 'PUT' })).json();
+const c = await connect(tab.id);
+const stamps = [];
+let recording = true;
+let loop;
+
+const OVERLAY = `(() => {
+    if (document.getElementById('__rec_label')) return true;
+    const st = document.createElement('style');
+    st.textContent = '#__rec_label{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:2147483647;background:rgba(12,12,15,.86);color:#fff;border-radius:14px;padding:12px 20px;min-width:520px;max-width:980px;font:500 13.5px/1.5 Pretendard,-apple-system,sans-serif;pointer-events:none}'
+        + '#__rec_label h3{font-size:16px;font-weight:700;margin:0 0 4px}#__rec_label ul{margin:0;padding:0}#__rec_label li{list-style:none;color:#E1E3EB}#__rec_label li:before{content:"· ";color:#12E575}'
+        + '#__rec_cursor{position:fixed;z-index:2147483647;width:22px;height:22px;pointer-events:none;left:1100px;top:640px;transition:left .45s ease,top .45s ease}'
+        + '#__rec_ripple{position:fixed;z-index:2147483646;border:3px solid #00C763;border-radius:50%;pointer-events:none;opacity:0}';
+    document.head.appendChild(st);
+    const l = document.createElement('div'); l.id = '__rec_label'; document.body.appendChild(l);
+    const k = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); k.id = '__rec_cursor'; k.setAttribute('viewBox', '0 0 22 22');
+    k.innerHTML = '<path d="M3 2l14 8.5-6.2 1.3 3.6 6.6-2.6 1.4-3.6-6.6L3.6 17z" fill="#0C0C0F" stroke="#fff" stroke-width="1.4"/>'; document.body.appendChild(k);
+    const r = document.createElement('div'); r.id = '__rec_ripple'; document.body.appendChild(r);
+    window.__recLabel = (t, cs) => {
+        l.replaceChildren(); l.style.display = t ? '' : 'none';
+        const h = document.createElement('h3'); h.textContent = t; l.appendChild(h);
+        const ul = document.createElement('ul'); cs.forEach(x => { const li = document.createElement('li'); li.textContent = x; ul.appendChild(li); }); l.appendChild(ul);
+    };
+    window.__recFind = (sel, text) => {
+        const el = [...document.querySelectorAll(sel)].find(e => !text || e.textContent.trim().includes(text));
+        if (!el) return null;
+        el.scrollIntoView({ block: 'nearest' });
+        const b = el.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2];
+    };
+    window.__recRipple = (x, y) => r.animate([{ left: x - 6 + 'px', top: y - 6 + 'px', width: '12px', height: '12px', opacity: 1 }, { left: x - 24 + 'px', top: y - 24 + 'px', width: '48px', height: '48px', opacity: 0 }], { duration: 450 });
+    return true;
+})()`;
+
+async function waitFor(expr, ms = 15000) {
+    const end = Date.now() + ms;
+    while (Date.now() < end) {
+        try { if (await c.evaluate(expr)) return; } catch {}
+        await sleep(200);
+    }
+    throw new Error(`시간 초과: ${expr}`);
+}
+const label = (t, cs = []) => c.evaluate(`__recLabel(${JSON.stringify(t)}, ${JSON.stringify(cs)})`);
+const shot = async name => writeFileSync(join(out, `${name}.png`), Buffer.from((await c.send('Page.captureScreenshot', { format: 'png' })).data, 'base64'));
+const has = (sel, text = '') => c.evaluate(`!!__recFind(${JSON.stringify(sel)}, ${JSON.stringify(text)})`);
+async function moveTo(sel, text = '', { click = false, hold = 0 } = {}) {
+    const p = await c.evaluate(`__recFind(${JSON.stringify(sel)}, ${JSON.stringify(text)})`);
+    if (!p) throw new Error(`요소 없음: ${sel} ${text}`);
+    const [x, y] = p;
+    await c.evaluate(`(() => { const k = document.getElementById('__rec_cursor'); k.style.left = ${x - 3} + 'px'; k.style.top = ${y - 2} + 'px'; return 1; })()`);
+    await sleep(520);
+    await c.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y });
+    if (click) {
+        await c.evaluate(`__recRipple(${x}, ${y})`);
+        await c.send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
+        await c.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 });
+    }
+    if (hold) await sleep(hold);
+}
+const tableReady = `document.querySelectorAll('tbody tr').length > 3`;
+
+try {
+    await c.send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+    await c.send('Page.bringToFront');
+    await c.send('Page.setDownloadBehavior', { behavior: 'allow', downloadPath: downloads });
+    await waitFor(`document.readyState === 'complete' && !!document.querySelector('button[role="tab"]')`, 60000);
+    await c.evaluate(`localStorage.removeItem('${KEY}')`);
+    await c.evaluate(OVERLAY);
+    loop = (async () => {
+        for (let i = 0; recording; i++) {
+            const t = Date.now();
+            try {
+                const f = join(frames, `f${String(i).padStart(5, '0')}.jpg`);
+                writeFileSync(f, Buffer.from((await c.send('Page.captureScreenshot', { format: 'jpeg', quality: 82 })).data, 'base64'));
+                stamps.push([f, t]);
+            } catch {}
+            await sleep(Math.max(0, 110 - (Date.now() - t)));
+        }
+    })();
+
+    await label("1. 설정 > 사용량 — '사용자별 사용량' 탭 추가", ['마스터에게만 보인다(멤버·게스트는 전체 사용량만)', "기존 화면은 '전체 사용량' 탭으로"]);
+    await sleep(1800);
+    await moveTo('button[role="tab"]', '사용자별 사용량', { click: true });
+    await waitFor(tableReady);
+    await label('2. 구성원별 사용량 — 기본 이번 달, AI 크레딧 많은 순', ['요약: 총 AI 크레딧 · 사용 구성원 / 현재 구성원', '구성원 · 역할 · AI 크레딧(%·막대) · 기능별 건수 · 계약서 등록']);
+    await sleep(2600);
+    await shot('usage-01-members-tab');
+
+    await label('3. AI 크레딧에 마우스를 올리면 기능별 크레딧', ["라벨은 '전체 사용량' 탭의 기능별 크레딧과 같다"]);
+    await moveTo('tbody tr:nth-child(1) [role="progressbar"]', '', { hold: 2600 });
+    await shot('usage-02-credit-tooltip');
+
+    await label('4. 기간 — 이번 달·지난 달·최근 3개월·직접 선택', ['최대 1년, 미래 날짜는 고를 수 없다']);
+    await moveTo('button[role="tab"]', '지난 달', { click: true, hold: 2200 });
+    await moveTo('button[role="tab"]', '최근 3개월', { click: true, hold: 2400 });
+    await shot('usage-03-last-3-months');
+
+    await label('5. 정렬 — 열 머리글로 오름·내림, 다시 불러오지 않는다', ['기타(사용자 정보 없음) 행은 항상 맨 아래']);
+    await moveTo('th button', 'AI 물어보기', { click: true, hold: 1700 });
+    await moveTo('th button', 'AI 물어보기', { click: true, hold: 1900 });
+
+    await label('6. 내보낸 구성원·탈퇴한 사용자·게스트·기타 행', ['기간 안에 기록이 있으면 표에 남는다 — 합계가 전체 사용량과 맞도록']);
+    await moveTo('tbody tr:last-child', '', { hold: 2600 });
+    await shot('usage-04-status-badges');
+
+    await label('7. 엑셀 다운로드 — 지금 기간·정렬 그대로', ['받는 중에는 버튼만 로딩, 실패하면 토스트']);
+    await moveTo('button', '엑셀 다운로드', { click: true, hold: 2800 });
+
+    await c.evaluate(`localStorage.setItem('${KEY}', 'plan')`);
+    await label('8. 플랜 미지원 — Team 300 미만은 잠금 화면', ["'요금제 보기'로 요금제 화면에 간다"]);
+    await moveTo('button[role="tab"]', '이번 달', { click: true });
+    await waitFor(`document.body.innerText.includes('Team 300 이상')`, 10000);
+    await sleep(2600);
+    await shot('usage-05-plan-locked');
+
+    await c.evaluate(`localStorage.setItem('${KEY}', 'error')`);
+    if (await has('button[role="tab"]', '지난 달')) {
+        await label('9. 불러오기 실패 — 다시 시도로 다시 불러온다');
+        await moveTo('button[role="tab"]', '지난 달', { click: true });
+    } else {
+        await c.send('Page.navigate', { url: `${base}?tab=members` });
+        await waitFor(`document.readyState === 'complete' && !!document.querySelector('button[role="tab"]')`, 30000);
+        await c.evaluate(OVERLAY);
+        await label('9. 불러오기 실패 — 다시 시도로 다시 불러온다');
+    }
+    await waitFor(`document.body.innerText.includes('불러오지 못했어요')`, 10000);
+    await sleep(2000);
+    await shot('usage-06-load-failed');
+    await c.evaluate(`localStorage.removeItem('${KEY}')`);
+    await moveTo('button', '다시 시도', { click: true });
+    await waitFor(tableReady, 10000);
+    await sleep(1600);
+    await label('끝');
+    await sleep(1500);
+} finally {
+    recording = false;
+    await loop?.catch(() => undefined);
+    await c.evaluate(`localStorage.removeItem('${KEY}')`).catch(() => undefined);
+    c.close();
+    await fetch(`${CDP}/json/close/${tab.id}`).catch(() => undefined);
+}
+
+// 프레임 사이 실제 시간 간격대로 이어 붙인다
+const list = stamps.map(([f, t], i) => `file '${f}'\nduration ${((stamps[i + 1]?.[1] ?? t + 1200) - t) / 1000}`).join('\n') + `\nfile '${stamps.at(-1)[0]}'\n`;
+writeFileSync(join(out, 'frames.txt'), list);
+execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', join(out, 'frames.txt'), '-vf', 'fps=12,scale=1440:-2', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '24', '-movflags', '+faststart', join(out, 'usage-by-member-flow.mp4')]);
+rmSync(frames, { recursive: true, force: true });
+rmSync(join(out, 'frames.txt'), { force: true });
+console.log('frames', stamps.length, 'download', existsSync(downloads) ? readdirSync(downloads) : []);
