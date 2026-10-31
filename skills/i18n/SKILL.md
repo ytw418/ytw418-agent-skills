@@ -15,12 +15,13 @@ Allibee 프론트엔드의 i18n 키 작성/변경 시 아래 규칙을 따른다
 
 ## 공통 규칙 (모든 앱)
 
-1. **ko/en/ja locale 파일을 직접 수정하지 않는다.** (cue의 `src/lib/i18n/generated/*.ts`는 자동 생성 파일)
+1. **ko/en/ja locale 파일을 직접 수정하지 않는다.** (cue의 `src/lib/i18n/generated/*.ts`는 자동 생성 파일) React `src/i18n/messages/app/*.json` 덮어쓰기 카탈로그도 포함한다 — 저장소 AGENTS.md 가 허용해도 고치지 않는다(2026-10-30 PR #1819·#1820·#1822 에서 어겨 사용자가 지적). 훅 `~/.claude/hooks/i18n-file-guard.py` 가 편집을 막는다.
 2. 기존 키의 **의미(문구/용도)**가 바뀌면 기존 키를 덮어쓰지 않고 suffix를 붙인다.
 3. suffix는 `V2`, `V3`, ... 순서로 증가시킨다.
 4. 키는 파일 경로를 반영한 dot-notation을 따른다. (예: `apps.cue.routes.sign-up.direct.email-input.page.subtitle`)
 5. **사용자에게 시트 행을 줄 때는 마크다운 표로 주지 않는다.** 항상 ` ```text ` 코드블록 안에 탭 구분 한 줄(키 컬럼 → ko → en → ja)로 준다. 표는 복사하면 탭이 사라져 시트에 붙여넣을 수 없다. 키가 여러 개면 한 블록에 한 줄씩 넣어 블록 전체를 한 번에 붙여넣을 수 있게 한다.
-6. 새 키라고 안내하기 전에 같은 경로의 키가 이미 있는지 생성 파일에서 확인한다. 앱별로 덮어쓰는 카탈로그(예: React `src/i18n/messages/app/*.json`)가 있으면 실제로 화면에 나오는 값도 함께 확인한다.
+6. 새 키라고 안내하기 전에 같은 경로의 키가 이미 있는지 생성 파일에서 확인한다. 앱별로 덮어쓰는 카탈로그(예: React `src/i18n/messages/app/*.json`)가 있으면 실제로 화면에 나오는 값도 함께 확인한다. Cue 사전에 이미 있는 키는 행에서 빼서 시트에 중복을 만들지 않는다 — `python3 -I scripts/sheet_rows.py <react 저장소> <cue 저장소> <develop 커밋…> -- 키=ko|en|ja …` 가 빠진 행만 뽑는다.
+7. 코드에는 시트 반영·생성 전에도 키 이름이 보이거나 테스트가 `MISSING_MESSAGE` 로 깨지지 않게 기본값을 둔다 — React 는 `translateRuntime(key, '기본값')`, cue 는 `$_(key, { default: '기본값' })`. 기본값 없는 `t(key)` 로 새 키를 쓰지 않는다(2026-10-31 #1820 에서 json 을 빼자 실제 카탈로그를 쓰는 테스트 5건이 깨졌다).
 
 ## 앱 판별
 
@@ -31,9 +32,14 @@ Allibee 프론트엔드의 i18n 키 작성/변경 시 아래 규칙을 따른다
 | `apps.contract.*`, `routes.*` | contract 시트 | **분리 포맷** (네임스페이스 + 마지막 키) |
 | `packages.service.lib.*` (공용) | packages.service.lib 시트 | **분리 포맷** (네임스페이스 + 마지막 키) |
 | `apps.cue.*` | FE CUE 시트 | **전체 키 포맷** (한 컬럼) |
-| `react.*` (allibee-frontend-react) | BA-FE 시트 | **분리 포맷** (네임스페이스 + 마지막 키) |
+| `react.*` (allibee-frontend-react, Cue 안·React 자체 모두) | FE CUE 시트 | **전체 키 포맷** (한 컬럼) |
+
+> 2026-10-31 사용자 결정: 앨리비(공용) 시트 `BA-FE` 탭(분리 포맷)에는 더 넣지 않고 React 키도 모두 FE CUE 시트에 전체 키 포맷으로 넣는다.
+> 주의: React 이전 내역 위젯(`apps/business-agent/src/agent-history-widget-mount.tsx`) 등 `BusinessAgentViteI18nProvider` 를 쓰는 화면은 Cue 사전이 아니라 React 번들 카탈로그(`buildBusinessAgentViteMessages`, base 와 `app/*.json`)를 읽는다. 그 화면 키의 `app/*.json` 값을 걷어낼 때는 위젯이 실제로 어느 사전을 읽는지 먼저 확인한다.
 
 > cue 앱이 `packages.service.lib.*` 키를 쓰더라도, 해당 키는 공용 시트(분리 포맷)에 입력한다. cue의 `sheet-to-i18n.js`가 공용 시트를 함께 읽어 병합한다.
+>
+> 반대로 cue 는 공용 시트에서 `packages.*` 만 가져온다(`apps/cue/scripts/i18n/sheet-to-i18n.js`). Cue 안 React(MFE)는 Cue 사전을 쓰므로, Cue 화면 문구를 바꾸려면 `react.*` 키를 **FE CUE 시트에 전체 키 포맷**으로 넣고 `gh workflow run generate-cue-i18n.yml -R bhsn-ai/allibee-frontend --ref develop` 으로 생성한다. React 카탈로그나 `BA-FE` 탭만 고치면 Cue 화면은 바뀌지 않는다.
 
 ## contract / 공용(packages) 시트 포맷 — 분리 포맷
 
@@ -76,7 +82,7 @@ apps.cue.lib.service.signIn.common.agreeAll	전체 동의	Agree to all	すべて
 npm run sheet-to-i18n
 ```
 
-## React(BA-FE) 시트 포맷 — 분리 포맷
+## React(BA-FE) 시트 포맷 — 분리 포맷 (2026-10-31부터 쓰지 않음, 기존 키 확인용)
 
 `scripts/i18n/sheet-to-json.mjs`가 `[네임스페이스, 마지막 키, ko, en, ja]`로 읽는다(contract와 같은 분리 포맷). 전체 키를 한 칸에 넣으면 키가 생성되지 않는다.
 
