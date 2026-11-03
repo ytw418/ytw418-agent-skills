@@ -193,9 +193,13 @@ async function adminToken() {
 const crewTokens = new Map();
 async function crewToken(member) {
   if (crewTokens.has(member.userId)) return crewTokens.get(member.userId);
-  const data = await api("POST", "/api/users/test-accounts", {
-    token: await adminToken(),
-    body: { action: "switch", userId: member.userId },
+  const switchTo = async () =>
+    api("POST", "/api/users/test-accounts", { token: await adminToken(), body: { action: "switch", userId: member.userId } });
+  // 관리자 접근 토큰은 실행 도중(30분쯤) 만료된다 — 한 번 새로 받아 다시 시도한다.
+  const data = await switchTo().catch(async (error) => {
+    if ((error.status !== 401 && error.status !== 403) || !process.env.CREW_ADMIN_REFRESH_TOKEN) throw error;
+    adminTokenCache = null;
+    return switchTo();
   });
   crewTokens.set(member.userId, data.accessToken);
   return data.accessToken;
@@ -448,6 +452,14 @@ function validatePlan(plan, roster) {
         }
         break;
       }
+      case "town": {
+        // 동네 사랑방 메시지(보낸 크루의 시/군/구 기준 반경 50km 에 보인다). 예비 크루는 쓰지 않는다.
+        const len = String(action.body ?? "").trim().length;
+        if (!len || len > 300) errors.push(`${at}: 사랑방 메시지 ${len}자(1~300)`);
+        if (role === "예비") errors.push(`${at}: ${action.crew} 는 예비 크루 — 사랑방 메시지를 쓰지 않는다`);
+        if (action.replyToId !== undefined && !Number.isInteger(action.replyToId)) errors.push(`${at}: replyToId 는 정수`);
+        break;
+      }
       case "like":
         if (!Number.isInteger(action.postId)) errors.push(`${at}: postId 가 없습니다`);
         break;
@@ -531,6 +543,13 @@ async function runAction(action, member) {
       });
       return { id: answer.id, postId: action.postId };
     }
+    case "town": {
+      const { townMessage } = await api("POST", "/api/town/messages", {
+        token,
+        body: { type: "TEXT", body: action.body.trim(), ...(action.replyToId ? { replyToId: action.replyToId } : {}) },
+      });
+      return { id: townMessage.id, region: townMessage.regionSigungu };
+    }
     case "like": {
       // 좋아요 API 는 누를 때마다 켜고 끈다. 이미 눌렀으면 건너뛴다.
       const { isLiked } = await api("GET", `/api/posts/${action.postId}`, { token });
@@ -609,9 +628,10 @@ function lintPlan(plan) {
   const comments = [];
 
   (plan.actions ?? []).forEach((action, index) => {
-    if (!["post", "debate", "comment"].includes(action.type)) return;
+    if (!["post", "debate", "comment", "town"].includes(action.type)) return;
     const at = `#${index} ${action.type} ${action.crew}`;
-    const text = String(action.type === "comment" ? action.comment ?? "" : action.description ?? "");
+    const short = action.type === "comment" || action.type === "town";
+    const text = String(action.type === "comment" ? action.comment ?? "" : action.type === "town" ? action.body ?? "" : action.description ?? "");
     const title = String(action.title ?? "");
     const voice = voiceOf.get(action.crew) ?? "default";
     const whole = `${title}\n${text}`;
@@ -622,13 +642,13 @@ function lintPlan(plan) {
     }
     if (DASH.test(whole)) hard.push(`${at}: 긴 줄표(—) — 사람은 거의 안 쓴다`);
     if (MARKDOWN_HEAVY.test(text)) hard.push(`${at}: ## 제목·**굵게** 서식 — 블로그 글처럼 보인다`);
-    if (action.type === "comment" && LIST_LINE.test(text)) hard.push(`${at}: 댓글에 목록 서식`);
+    if (short && LIST_LINE.test(text)) hard.push(`${at}: 댓글에 목록 서식`);
     if (action.type === "post" && NUMBERED_LINE.test(text)) soft.push(`${at}: 번호 목록 — 경험담 문장이나 '-' 몇 줄로`);
     if (action.type === "post" && INFO_TITLE.test(title.trim())) soft.push(`${at}: 정보글 제목 "${clip(title, 30)}" — 상황·감정이 보이게`);
 
     const ranges = whole.match(RANGE) ?? [];
     if (ranges.length >= 2) soft.push(`${at}: 숫자 범위 ${ranges.length}개(${ranges.join(", ")}) — '한 25도쯤', '이틀 정도'처럼`);
-    if (action.type === "comment") {
+    if (short) {
       if (text.length > COMMENT_LONG) soft.push(`${at}: 댓글 ${text.length}자 — 한 가지만 짧게`);
       if (PAREN.test(text)) soft.push(`${at}: 괄호 덧말`);
       comments.push(text.trim());
@@ -963,11 +983,28 @@ async function cleanup(positional, flags) {
         await api("POST", `/api/posts/${entry.id}`, { token, body: { action: "delete" } });
       } else if (entry.type === "comment") {
         await api("DELETE", `/api/posts/${entry.postId}/comments/${entry.id}`, { token });
+      } else if (entry.type === "town") {
+        await api("DELETE", `/api/town/messages/${entry.id}`, { token });
       } else continue;
       console.log(`  ✔ ${label} 지움`);
     } catch (error) {
       console.error(`  ✖ ${label}: ${error.message}`);
     }
+  }
+}
+
+/** town-read <크루> [--limit 50]: 그 크루 동네(반경 50km)의 사랑방 최근 메시지를 읽는다. */
+async function townRead(positional, flags) {
+  const member = loadRoster().members.find((m) => m.key === positional[0]);
+  if (!member) fail("크루 키가 필요합니다: town-read <c01>");
+  const data = await api("GET", `/api/town/messages?limit=${Number(flags.limit ?? 50)}`, { token: await crewToken(member) });
+  const crewIds = new Set(loadRoster().members.map((m) => m.userId));
+  console.log(`범위: ${data.scope?.label ?? "동네 미설정"} · 이웃 ${data.neighbors} · 조용 ${data.quietMinutes ?? "-"}분`);
+  for (const m of data.messages) {
+    if (m.deleted) continue;
+    const who = `${m.user.name}${crewIds.has(m.user.id) ? "(크루)" : ""}`;
+    const reply = m.replyTo ? ` ↪#${m.replyTo.id}` : "";
+    console.log(`#${m.id} ${m.createdAt.slice(5, 16)} ${m.regionSigungu} ${who}${reply}: ${m.body ?? `[${m.type}]`}`);
   }
 }
 
@@ -985,6 +1022,7 @@ const commands = {
   profile: () => profile(positional, flags),
   lint: () => lint(positional, flags),
   edit: () => edit(positional, flags),
+  "town-read": () => townRead(positional, flags),
 };
 
 if (!commands[command]) {
