@@ -108,9 +108,11 @@ PR을 사용자가 직접 머지할 수 있는 상태까지 반복해서 완성�
 6. 스크린샷을 PR에 반영한 뒤 다음 하네스로 base 이후 전체 커밋과 PR 본문·댓글을 검사한다. 하네스는 diff에 UI 파일(`.svelte`, `.tsx`, `.css` 등)이 있으면 **플래그 없이도 첨부를 자동 요구**한다(assets 레포 raw URL도 첨부로 인정). `--require-attachment`는 강제, `--skip-attachment`는 시각 변화가 정말 없는 UI 파일 변경(타입만 수정 등)에만 사유와 함께 사용한다.
 
    ```bash
-   node ~/.codex/skills/pr-completion-loop/scripts/check-pr-screenshot-storage.js \
+   cd <PR 워크트리> && node ~/.codex/skills/pr-completion-loop/scripts/check-pr-screenshot-storage.js \
      --pr <PR 번호> --repo bhsn-ai/allibee-frontend
    ```
+
+   스크립트는 diff를 현재 폴더의 git에서 읽는다. 다른 저장소에서 돌리면 그 저장소 diff를 보고 `uiChange=false`로 잘못 통과한다(ALLIBEE-1680, 2026-11-03).
 
 7. 하네스가 저장소 이미지 경로를 발견하면 삭제 커밋만 추가하지 말고, feature 브랜치의 해당 커밋을 다시 작성해 base 이후 히스토리에서도 바이너리를 제거한다. 공개 feature 브랜치는 원격 SHA를 고정한 `--force-with-lease`로만 갱신한다.
 8. Figma node나 데이터가 없으면 `BLOCKED_SPEC` 또는 `BLOCKED_DATA`로 기록하고 추측으로 통과시키지 않는다.
