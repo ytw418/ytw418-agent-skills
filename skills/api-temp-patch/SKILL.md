@@ -36,7 +36,7 @@ BE API 배포 전에 FE 화면을 먼저 만든다. 원래 `apps/cue/src/lib/api
 - 테스트는 분기 로직과 가짜 덧입히기 로직만 1~2개. 페이지 테스트가 `vi.mock('$lib/api')`를 쓰면 새 함수도 목에 넣는다
 - svelte-check·vitest는 develop 기준(바로 앞 커밋)과 결과를 비교해 '새로 생긴 오류·실패 0'을 확인한다 — 저장소에 원래 실패가 많다
 - i18n: 생성 locale 파일은 고치지 않는다. 시트 행(키·ko·en·ja 탭 구분 TSV)을 티켓 코멘트에 남긴다. 시트 입력 전에는 화면에 키 원문이 보인다
-- 화면 확인·흐름 영상: 로컬 개발 서버(https://localhost:5173)에 로그인한 상태가 필요하다. 회사 자동화 크롬(9224)에 탭을 열어 사용자가 한 번 로그인하면, 같은 출처라 워크트리를 바꿔도 유지된다
+- 화면 확인·흐름 영상: 로컬 개발 서버(https://localhost:5173)에 로그인한 상태가 필요하다. 로그인은 직접 한다(7절 2단계). 같은 출처라 워크트리를 바꿔도 유지된다
 
 ## 5. PR·티켓
 
@@ -48,14 +48,16 @@ BE API 배포 전에 FE 화면을 먼저 만든다. 원래 `apps/cue/src/lib/api
 
 1. 타입 생성 Action 실행 → service.ts·types.d.ts·functionNames.json 충돌은 생성 결과를 받는다
 2. `grep -rn "FAKE(<티켓>)" apps/cue`로 남은 곳을 정리하고 `fake/<티켓>.ts`(·`.test.ts`)를 지운다
-3. 함수 이름이 다르면 호출부만 고친다 → dev 실제 API로 확인 → ready for review
+3. 함수 이름이 다르면 호출부를 고친다. 생성 이름이 읽기 어려우면(`list2_UKQO` 등) `functionNames.json`에 읽기 쉬운 이름으로 고정한다 — 가드 테스트 `functionNames.test.ts`가 커밋된 JSON과 비교한다(ALLIBEE-1680)
+4. dev 실제 API로 성공·오류 흐름을 다시 본다(로그인은 7절 2단계). 업로드 실패가 필요하면 무작위 바이트 `.hwp`를 쓴다 — BE는 빈 docx·무작위 바이트 docx도 200으로 받는다(ALLIBEE-1680) → ready for review
 
 ## 7. 흐름 영상·캡처 (화면 개발 뒤, ALLIBEE-1679에서 처음 씀)
 
 예시 스크립트: `scripts/cdp.mjs`(회사 크롬 탭 열기·JS 실행·캡처·닫기), `scripts/record-example.mjs`(단계 라벨·가짜 커서를 띄우고 0.11초마다 캡처해 ffmpeg로 영상을 만들고 캡처 PNG도 남김 — 화면에 맞게 고쳐 쓴다).
 
 1. 워크트리에서 개발 서버를 백그라운드로 띄운다: `cd apps/cue && npm run dev -- --port 5173`. 5173을 다른 작업이 쓰고 있으면 그 작업 경로를 확인하고 겹치지 않게 한다
-2. 로그인: 회사 자동화 크롬(9224)에 `https://localhost:5173` 탭을 열고, 로그인 화면이면 'Google 계정으로 계속' → `sjyoon@bhsn.ai`를 고른다. 비밀번호가 필요 없고, 같은 출처라 워크트리를 바꿔도 유지된다. **사용자에게 로그인을 부탁하지 않는다**(2026-10-30 사용자 지적 — 계정 정보는 웍스 설정·애플 메모에도 있다)
+2. 로그인은 직접 한다. **사용자에게 부탁하지 않는다, 예외 없음**(2026-10-30·2026-11-03 사용자 지적 — "로그인 니가해라, 아이디 비밀번호로 로그인하던가"). 회사 자동화 크롬(9224)에 `https://localhost:5173` 탭을 열고, 로그인 화면이면 'Google 계정으로 계속' → `sjyoon@bhsn.ai`를 고른다. Google이 비밀번호를 물으면(세션 만료) `node scripts/dev-login.mjs <탭 id>`로 들어간다: 웍스 설정(allibee-frontend `paseo.json`)의 dev 슈퍼어드민으로 로그인해 sjyoon으로 대리 로그인하고 첫 화면으로 간다. dev 감사 로그가 남고, 비밀번호는 스크립트 안에서만 읽고 출력하지 않는다. sjyoon은 Google SSO 계정이라 아이디·비밀번호 로그인은 안 된다
+   - 시험은 격리 컨텍스트 탭(`Target.createBrowserContext`)에서 한다 — localhost 쿠키는 포트와 상관없이 하나라 다른 작업의 로그인을 덮는다. 탭은 개발 서버 화면(`/sign-in/` 등)으로 연다. API 주소를 열면 401 오류 페이지라 요청이 안 나간다
 3. 녹화할 때만 i18n 문구를 로컬 `apps/cue/src/lib/i18n/generated/ko.ts`에 넣어 키 원문이 영상에 나오지 않게 하고, 끝나면 `git checkout -- …/ko.ts`로 되돌린다(커밋 금지)
 4. 녹화: 단계마다 라벨(제목·확인 항목)을 띄우고, 마우스 이동·클릭은 CDP Input 이벤트로 한다. 가짜 응답 전환(localStorage)으로 오류·잠금 상태까지 같은 영상에 담는다. 다운로드는 `Page.setDownloadBehavior`로 작업 폴더에 받아 파일이 생기는지까지 확인한다
 5. **영상은 끝까지 직접 확인한다**: `ffmpeg -i 영상.mp4 -vf "fps=1/2,scale=480:-1,tile=3x3" /tmp/sheet_%02d.png`로 2초 간격 장면을 모아 전부 열어 보고, 단계가 빠지거나 라벨이 화면을 가리면 고쳐 다시 녹화한다(ALLIBEE-1679 v1은 새로고침 순간 캡처 요청이 멈춰 끝부분이 통째로 빠졌다 — 스크립트는 캡처 2.5초 초과 시 건너뛰고, 다시 불러오기는 새로고침 대신 탭 전환으로 한다)
