@@ -3,6 +3,9 @@ name: bredy-instagram-outreach
 description: 브리디 공식 인스타 계정(bredy_breeder)으로 크레·파충류·곤충·물고기 브리더·샵·키우는 사람에게 영업 DM 을 보내고 답장을 처리한다. 브리디 자동화 크롬(scripts/ig.mjs)으로 DM함 답장 정리 → 남은 창립 브리더 자리 확인 → 유형별 공통 문구에 닉네임만 넣어 하루 20명까지 발송 → targets.csv 기록 → 보고까지 한다. "인스타 DM 영업", "인스타 영업 돌려", "DM 보내줘", "인스타 답장 확인", "영업 메시지 보내", "브리더 DM", 아침·점심·저녁 자동 영업 일정 실행 때 쓴다.
 ---
 
+> **대상·말투 (2026-11-03 사용자 결정)**: DM(인스타·스레드·카페 1:1 채팅)은 파충류·곤충·물고기 쪽에만 보낸다 — 식집사·고양이·강아지·햄스터 집사는 DM 답장이 거의 없다. 강아지·고양이·식물·햄스터 쪽은 DM 대신 게시물·글 댓글로 영업한다. 영업 글(DM·댓글·채팅)에는 이모지를 쓰지 않는다.
+
+
 # 브리디 인스타 DM 영업
 
 상세 기획: `references/prd.md`. 문구: `references/templates.md`. 브라우저: **브리디 자동화 크롬**(`~/.bredy-chrome`, CDP 9222)에 `scripts/ig.mjs` 가 붙어 자기 탭에서 보낸다(2026-10-18 정책 — `~/Desktop/pro/bredy-marketing/docs/browser-automation.md`). `references/browser-recipe.md`(Paseo 브라우저 방식)는 예전 기록.
