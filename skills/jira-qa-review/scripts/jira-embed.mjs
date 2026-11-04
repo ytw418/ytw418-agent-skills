@@ -12,7 +12,9 @@ try {
     // 1) wiki 본문에서 마크다운 이미지 글자를 !파일|width=! 로 바꿔 저장(v2 가 첨부와 연결한다)
     const v2 = await (await api(`/rest/api/2/issue/${issue}?fields=description,attachment`)).json();
     let wiki = v2.fields.description || '';
-    const fixed = wiki.replace(/!\\?\[\\?\]\\?\(([^)\s]+?\.(?:png|jpe?g|gif))\\?\)/gi, '!$1!');
+    const fixed = wiki.replace(/!\\?\[\\?\]\\?\(([^)\s]+?\.(?:png|jpe?g|gif))\\?\)/gi, '!$1!')
+      // Jira MCP 저장 때 옛 본문의 이미지가 끝에 다시 붙는다 — 마지막 글 뒤 이미지만 있는 줄을 지운다
+      .replace(/(\n\s*![^!\n]+!\s*)+$/, '\n');
     if (fixed !== wiki) {
       const r = await api(`/rest/api/2/issue/${issue}`, { method: 'PUT', headers: H, body: JSON.stringify({ fields: { description: fixed } }) });
       if (r.status !== 204) return `v2 PUT ${r.status} ${await r.text()}`;
