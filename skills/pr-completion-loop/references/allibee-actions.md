@@ -4,7 +4,6 @@
 
 | 대상 | Workflow file | 생성 branch | PR title | 허용 generated 경로 |
 | --- | --- | --- | --- | --- |
-| Cue i18n | `generate-cue-i18n.yml` | `generate-cue-i18n` | `CUE I18N GENERATE` | `apps/cue/src/lib/i18n/generated/` |
 | Cue type | `generate-cue-type.yml` | `generate-cue-type` | `CUE TYPE GENERATE` | `apps/cue/src/lib/api/generated/` |
 | Contract i18n | `generate-allibee-i18n.yml` | `generate-i18n` | `ALLIBEE I18N GENERATE` | `lib/locales/` |
 | Contract type | `generate-allibee-type.yml` | `generate-type` | `ALLIBEE TYPE GENERATE` | `lib/api/generated/` |
@@ -14,7 +13,7 @@
 ## 실행과 run 고정
 
 ```bash
-workflow=generate-cue-i18n.yml
+workflow=generate-allibee-i18n.yml
 started_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 gh workflow run "$workflow" --ref develop
 gh run list --workflow "$workflow" --event workflow_dispatch --limit 10 \

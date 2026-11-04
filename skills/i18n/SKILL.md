@@ -1,6 +1,6 @@
 ---
 name: i18n
-description: Allibee 프론트엔드 i18n 키를 추가/수정할 때 키 버전 suffix(V2, V3...) 규칙과 앱별 Google Sheet 입력 포맷을 일관되게 생성한다. contract는 네임스페이스/마지막키 분리 포맷, cue는 전체 키 한 컬럼 포맷을 사용한다. 번역 값에 \n 줄바꿈이 있으면 시트 셀 내 줄바꿈으로 붙여넣을 수 있는 따옴표 감싼 형태로 변환한다.
+description: Allibee 프론트엔드 i18n 키를 추가/수정할 때 키 버전 suffix(V2, V3...) 규칙과 앱별 반영 방법을 따른다. cue·Cue 안 React MFE(apps.cue.*·react.*)는 cue locales/{ko,en,ja}.ts 를 직접 고치고, contract·packages 는 네임스페이스/마지막키 분리 포맷 시트 행을 만든다. 번역 값에 \n 줄바꿈이 있으면 시트 셀 내 줄바꿈으로 붙여넣을 수 있는 따옴표 감싼 형태로 변환한다.
 ---
 
 # i18n
@@ -11,35 +11,38 @@ Allibee 프론트엔드의 i18n 키 작성/변경 시 아래 규칙을 따른다
 
 -   새 번역 키를 추가할 때
 -   기존 키 의미가 바뀌어 키를 버전업해야 할 때
--   Google Sheet에 붙여넣을 한 줄 포맷이 필요할 때
+-   contract·`packages.*` 키를 Google Sheet에 붙여넣을 한 줄 포맷이 필요할 때
 
-## 공통 규칙 (모든 앱)
+## 큐·리액트 MFE는 번역 파일을 직접 고친다 (2026-11-04 사용자 결정)
 
-1. **ko/en/ja locale 파일을 직접 수정하지 않는다.** (cue의 `src/lib/i18n/generated/*.ts`는 자동 생성 파일) React `src/i18n/messages/app/*.json` 덮어쓰기 카탈로그도 포함한다 — 저장소 AGENTS.md 가 허용해도 고치지 않는다(2026-10-30 PR #1819·#1820·#1822 에서 어겨 사용자가 지적). 훅 `~/.claude/hooks/i18n-file-guard.py` 가 편집을 막는다.
+"이제 큐랑 리액트 mfe는 엑셀시트에 추가 안 하고 바로 직접 ja, ko, en 번역 파일을 수정할 거야." allibee-frontend develop 도 cue 번역 원본을 시트에서 파일로 옮겼다(AGENTS.md i18n 절, #5075).
+
+-   대상 키: `apps.cue.*`, Cue 안에 뜨는 React MFE 의 `react.*`
+-   고칠 파일: allibee-frontend `apps/cue/src/lib/i18n/locales/{ko,en,ja}.ts` 세 파일에 같은 키를 함께 넣는다. 키 오름차순 자리에 넣는다
+-   검사: `cd apps/cue && npx vitest run locales.test --poolOptions.threads.singleThread` (세 파일 키 일치·빈 문구·자리표시자). 워크트리에서 `--maxWorkers=1` 은 Tinypool 오류가 난다
+-   시트 행·`generate-cue-i18n` Action·`npm run sheet-to-i18n` 은 쓰지 않는다. 사용자에게 시트 행을 주지 않고, PR 본문에는 넣은 키만 적는다
+-   React 저장소 카탈로그(`lib/locales/*.json`, `apps/business-agent/src/lib/i18n/locales/*.json`)를 고쳐도 Cue 화면은 바뀌지 않는다 — Cue 화면 문구는 위 cue 파일의 `react.*` 키로 고친다. React 단독 앱 화면은 작업 대상이 아니다(글로벌 CLAUDE.md §15)
+-   주의: React 이전 내역 위젯(`agent-history-widget-mount.tsx`) 등 `BusinessAgentViteI18nProvider` 를 쓰는 화면은 Cue 사전이 아니라 React 번들 카탈로그를 읽는다. 그 화면 문구는 어느 사전을 읽는지 먼저 확인한다
+
+## 공통 규칙
+
+1. contract·`packages.*` 생성 파일(`lib/locales/*.json`, `apps/contract/src/lib/i18n/generated/*`)은 직접 고치지 않는다 — 시트 입력 뒤 Action 으로만 생성한다. 훅 `~/.claude/hooks/i18n-file-guard.py` 가 막는다. cue `locales/*.ts` 는 막지 않는다.
 2. 기존 키의 **의미(문구/용도)**가 바뀌면 기존 키를 덮어쓰지 않고 suffix를 붙인다.
 3. suffix는 `V2`, `V3`, ... 순서로 증가시킨다.
 4. 키는 파일 경로를 반영한 dot-notation을 따른다. (예: `apps.cue.routes.sign-up.direct.email-input.page.subtitle`)
-5. **사용자에게 시트 행을 줄 때는 마크다운 표로 주지 않는다.** 항상 ` ```text ` 코드블록 안에 탭 구분 한 줄(키 컬럼 → ko → en → ja)로 준다. 표는 복사하면 탭이 사라져 시트에 붙여넣을 수 없다. 키가 여러 개면 한 블록에 한 줄씩 넣어 블록 전체를 한 번에 붙여넣을 수 있게 한다.
-6. 새 키라고 안내하기 전에 같은 경로의 키가 이미 있는지 생성 파일에서 확인한다. 앱별로 덮어쓰는 카탈로그(예: React `src/i18n/messages/app/*.json`)가 있으면 실제로 화면에 나오는 값도 함께 확인한다. Cue 사전에 이미 있는 키는 행에서 빼서 시트에 중복을 만들지 않는다 — `python3 -I scripts/sheet_rows.py <react 저장소> <cue 저장소> <develop 커밋…> -- 키=ko|en|ja …` 가 빠진 행만 뽑는다.
-7. 코드에는 시트 반영·생성 전에도 키 이름이 보이거나 테스트가 `MISSING_MESSAGE` 로 깨지지 않게 기본값을 둔다 — React 는 `translateRuntime(key, '기본값')`, cue 는 `$_(key, { default: '기본값' })`. 기본값 없는 `t(key)` 로 새 키를 쓰지 않는다(2026-10-31 #1820 에서 json 을 빼자 실제 카탈로그를 쓰는 테스트 5건이 깨졌다).
+5. **시트 행(contract·packages)을 줄 때는 마크다운 표로 주지 않는다.** 항상 ` ```text ` 코드블록 안에 탭 구분 한 줄(키 컬럼 → ko → en → ja)로 준다. 표는 복사하면 탭이 사라져 시트에 붙여넣을 수 없다.
+6. 새 키를 넣기 전에 같은 경로의 키가 이미 있는지 번역 파일에서 확인한다.
+7. 코드에는 기본값을 둔다 — cue 는 `$_(key, { default: '기본값' })`, React 는 `translateRuntime(key, '기본값')`. 시트 반영 전(contract·packages)이나 테스트 목에서 키 이름·`MISSING_MESSAGE` 가 보이지 않게 한다.
 
 ## 앱 판별
 
-키 prefix로 어느 포맷을 쓸지 결정한다:
-
-| 키 prefix | 시트 | 포맷 |
+| 키 prefix | 원본 | 방법 |
 | --- | --- | --- |
-| `apps.contract.*`, `routes.*` | contract 시트 | **분리 포맷** (네임스페이스 + 마지막 키) |
-| `packages.service.lib.*` (공용) | packages.service.lib 시트 | **분리 포맷** (네임스페이스 + 마지막 키) |
-| `apps.cue.*` | FE CUE 시트 | **전체 키 포맷** (한 컬럼) |
-| `react.*` (allibee-frontend-react, Cue 안·React 자체 모두) | FE CUE 시트 | **전체 키 포맷** (한 컬럼) |
+| `apps.cue.*`, `react.*` (Cue 안 MFE) | cue `locales/{ko,en,ja}.ts` | **직접 수정** |
+| `apps.contract.*`, `routes.*` | contract 시트 | 시트 행 — **분리 포맷** (네임스페이스 + 마지막 키) |
+| `packages.*` (공용) | packages.service.lib 시트 | 시트 행 — **분리 포맷** |
 
-> 2026-10-31 사용자 결정: 앨리비(공용) 시트 `BA-FE` 탭(분리 포맷)에는 더 넣지 않고 React 키도 모두 FE CUE 시트에 전체 키 포맷으로 넣는다.
-> 주의: React 이전 내역 위젯(`apps/business-agent/src/agent-history-widget-mount.tsx`) 등 `BusinessAgentViteI18nProvider` 를 쓰는 화면은 Cue 사전이 아니라 React 번들 카탈로그(`buildBusinessAgentViteMessages`, base 와 `app/*.json`)를 읽는다. 그 화면 키의 `app/*.json` 값을 걷어낼 때는 위젯이 실제로 어느 사전을 읽는지 먼저 확인한다.
-
-> cue 앱이 `packages.service.lib.*` 키를 쓰더라도, 해당 키는 공용 시트(분리 포맷)에 입력한다. cue의 `sheet-to-i18n.js`가 공용 시트를 함께 읽어 병합한다.
->
-> 반대로 cue 는 공용 시트에서 `packages.*` 만 가져온다(`apps/cue/scripts/i18n/sheet-to-i18n.js`). Cue 안 React(MFE)는 Cue 사전을 쓰므로, Cue 화면 문구를 바꾸려면 `react.*` 키를 **FE CUE 시트에 전체 키 포맷**으로 넣고 `gh workflow run generate-cue-i18n.yml -R bhsn-ai/allibee-frontend --ref develop` 으로 생성한다. React 카탈로그나 `BA-FE` 탭만 고치면 Cue 화면은 바뀌지 않는다.
+> cue 작업이라도 새 `packages.*` 키는 공용 시트(분리 포맷)로 간다. cue 는 `apps/cue/src/lib/i18n/messages/` 에서 `lib/locales` 의 `packages.*` 를 합쳐 쓰고, cue 파일에 둔 `packages.*` 키는 그 값을 덮어쓴다.
 
 ## contract / 공용(packages) 시트 포맷 — 분리 포맷
 
@@ -56,42 +59,6 @@ apps.contract.routes.clm.repository.contract-extract.page.paymentMethodOneTime
 ```text
 apps.contract.routes.clm.repository.contract-extract.page	paymentMethodOneTime	한글	영어	일본어
 ```
-
-## cue 시트 포맷 — 전체 키 포맷
-
-컬럼 4개: `전체 키(FE KEY) | ko | en | ja`
-
-**키를 분리하지 않고 A열에 전체 키를 그대로 넣는다.**
-
-전체 키가 아래라고 가정:
-
-```text
-apps.cue.lib.service.signIn.common.agreeAll
-```
-
-시트용 한 줄 포맷:
-
-```text
-apps.cue.lib.service.signIn.common.agreeAll	전체 동의	Agree to all	すべて同意
-```
-
-시트 반영 후 로컬 파일 생성:
-
-```bash
-# apps/cue 에서 실행 — src/lib/i18n/generated/{ko,en,ja}.ts 재생성
-npm run sheet-to-i18n
-```
-
-## React(BA-FE) 시트 포맷 — 분리 포맷 (2026-10-31부터 쓰지 않음, 기존 키 확인용)
-
-`scripts/i18n/sheet-to-json.mjs`가 `[네임스페이스, 마지막 키, ko, en, ja]`로 읽는다(contract와 같은 분리 포맷). 전체 키를 한 칸에 넣으면 키가 생성되지 않는다.
-
-```text
-react.packages.allibeeReact.service.businessAgent.agent.previewSupport.agentDocumentTabBar.agentDocument.tabs.components.agentDocumentTabBar	mobileList	목록	List	一覧
-```
-
-시트 반영 후 생성: `gh workflow run generate-ba-fe-i18n.yml --ref develop` (develop 기준, `src/i18n/messages/**` 갱신). PR 생성 토큰이 없으면 `generate-ba-fe-i18n-<run id>` 브랜치까지만 올라가므로 PR은 수동으로 연다.
-코드에서는 생성 전에도 화면이 깨지지 않게 `translateRuntime(key, '기본값')`으로 기본값을 둔다.
 
 ## 줄바꿈(`\n`) 포함 값 처리
 
@@ -133,12 +100,6 @@ routes.resetPasswordFromEmailPage.changePassword
 
 ```text
 routes.resetPasswordFromEmailPage	changePassword	비밀번호변경	Change password	パスワードの変更
-```
-
-### cue — 신규 키
-
-```text
-apps.cue.routes.sign-up.direct.email-input.page.subtitle	이메일을 입력해 주세요	Enter your email	メールアドレスを入力してください
 ```
 
 ### 의미 변경으로 버전업 (공통)

@@ -90,7 +90,7 @@ PR을 사용자가 직접 머지할 수 있는 상태까지 반복해서 완성�
 
 1. 정확한 Figma node, route, viewport, data state를 고정한다.
 2. 비교는 로컬 dev 서버 + 격리된 Playwright로 수행한다. 프리뷰 배포 페이지는 비교 대상이 아니다. 실제 Chrome 재확인은 사용자가 요청할 때만 한다.
-3. raw i18n key가 보이면 Dev Tools의 `실시간 시트 연동`을 켜고 같은 상태를 재검증한다.
+3. raw i18n key가 보이면 cue·`react.*` 키는 `locales/*.ts`에 빠진 것이니 구현 실패로 고친다. contract·`packages.*` 키만 Dev Tools의 `실시간 시트 연동`을 켜고 같은 상태를 재검증한다.
    - 정상 문구가 나오면 구현은 통과시키고 생성 locale 미반영으로 분류한다.
    - 시트 연동 후에도 잘못되면 구현 실패로 분류해 수정한다.
 4. 구현 수정 후 같은 조건으로 final screenshot을 새로 만든다.
@@ -152,8 +152,9 @@ head SHA가 바뀌어도 모든 검증을 다시 시작하지 않는다. 먼저 
 
 ## 7. i18n 처리
 
+0. cue·Cue 안 React MFE 키(`apps.cue.*`·`react.*`)는 같은 PR에서 `apps/cue/src/lib/i18n/locales/{ko,en,ja}.ts`를 직접 고치고 `locales.test.ts`로 검사한다. 시트 행·생성 Action이 없으니 아래 1~6은 contract·`packages.*` 키에만 적용한다(2026-11-04, `i18n` 스킬).
 1. 신규·변경 키를 `i18n` 스킬의 앱별 포맷으로 정리한다.
-2. generated locale 파일을 직접 수정하지 않는다.
+2. contract·packages 생성 locale 파일을 직접 수정하지 않는다.
 3. `AGENTS.md`가 시트 자동 입력을 금지하면 복사 가능한 행을 사용자에게 전달하고 시트 반영 확인을 기다린다. 이 단계는 생략하거나 우회하지 않는다. 행은 마크다운 표가 아니라 `text` 코드블록 안 탭 구분 줄로 준다(`i18n` 스킬 공통 규칙 5).
 4. 시트 반영 확인 후 관련 i18n workflow를 실행하고 완료를 기다린다. [allibee-actions.md](references/allibee-actions.md)를 따른다.
 5. 생성 PR diff가 허용된 locale 경로에만 있는지 확인하고 checks 통과 후 생성 PR만 스쿼시 머지(`gh pr merge --squash`)한다.
