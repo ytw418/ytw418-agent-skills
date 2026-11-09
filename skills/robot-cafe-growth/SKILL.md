@@ -16,7 +16,8 @@ python3 -I $G/metrics.py
 
 1. **자동 등록 살아 있나** — `publish_alert:true`(24시간 운영 글 0개)면 오늘 `content/<날짜>/*-publish.log` 끝을 읽어 원인을 찾는다. `$C/ensure-browser.sh` 가 2면 네이버 로그인이 풀린 것 → 사용자 할 일(`~/Desktop/pro/personal-todo/todo.md`, CLAUDE.md §11)에 "로봇천국: 브리디 자동화 크롬에서 네이버 다시 로그인"을 넣고 보고한다. 스크립트 문제면 고치고 그날 빠진 칸을 `publish.py <칸>` 으로 하나만 올린다(하루 3개·2시간 간격 한도 지킴).
 2. **회원 글** — `member_posts` 중 `spam_suspect:false` 이고 답 없는 글은 운영자(kingdom)로 정보성 답 댓글을 단다(카페 공식 존댓말, robot-cafe-content references/style.md). 자작 질문·자작 댓글·가짜 회원은 만들지 않는다(PRD P-6.8). 스팸 후보는 글 번호·제목을 보고에 적고, 사용자가 삭제를 허락한 종류만 지운다.
-3. **기록** — `growth/log.md` 에 날짜·멤버 수(7일 전 대비)·조회 상위 3개·한 일 한 줄씩.
+3. **가입 인사 답 (2026-11-10 사용자 승인)** — `python3 $G/welcome.py` (가입인사 게시판은 회원 전용이라 로그인된 자동화 크롬으로 읽는다) → `comments:0` 인 글마다 운영자 환영 댓글을 단다: 이름을 불러 환영 + 글에 적은 관심 분야에 맞는 게시판 하나 안내 + 이달 챌린지 한 줄. 매번 문장을 바꾸고 이모지·링크는 넣지 않는다. 답은 글 파일로 써서 `python3 ~/.claude/skills/bredy-cafe-activity/scripts/cafe-comment.py <url> <글.txt>`(출력 ok 확인), 댓글 사이 1분 이상.
+4. **기록** — `growth/log.md` 에 날짜·멤버 수(7일 전 대비)·조회 상위 3개·한 일 한 줄씩.
 
 ## 주 2회 (월·목) 브리디 블로그 홍보 (2026-11-09 사용자 "브리디 계정에 홍보해라")
 
@@ -27,6 +28,12 @@ D=content/<날짜>-robotcafe   # bredy-marketing 기준 상대 경로
 cd ~/Desktop/pro/bredy-marketing && python3 ~/.claude/skills/bredy-cafe-activity/scripts/naver-photos.py $D/blog-<주제>.txt "<제목>" "브리디 소식" "<태그,…,로봇천국>" $D/robotcafe-gate.png
 ```
 발행 뒤 `curl -s -A "Mozilla/5.0 (iPhone)" https://m.blog.naver.com/bredy_team/<번호> | grep -c zxgamezx` 로 링크를 확인하고 `growth/log.md` 에 주소를 적는다. 같은 주제를 두 번 쓰지 않는다(log.md 확인).
+
+## 매달 회원 챌린지 (2026-11-10 사용자 승인)
+
+- 1~7일 중 하루: 지난달 챌린지('내 로봇 자랑' 게시판 글)를 모은 소개 글을 쓰고, 새 달 챌린지 공지를 공지사항에 올린다(첫 공지 11월 https://cafe.naver.com/ca-fe/cafes/16729678/articles/30147). 참여 글이 0개면 모음 글은 쓰지 않는다.
+- 하루 3개 한도라 그날의 회원 참여(ask) 칸을 대체한다: `content/<날짜>/lunch-*` 파일로 쓰고 `lint.py --kind ask` → `ensure-browser.sh` → `post.sh 공지사항 …` → `anon-check.mjs` → `log.py` → `lunch-published.json`(점심 일정이 중복 등록하지 않게) → `release-browser.sh`.
+- 상품·등업 같은 보상은 사용자 승인 없이 약속하지 않는다. 보상은 '모음 글로 소개'까지만.
 
 ## 주 1회 (월요일)
 
