@@ -18,6 +18,16 @@ python3 -I $G/metrics.py
 2. **회원 글** — `member_posts` 중 `spam_suspect:false` 이고 답 없는 글은 운영자(kingdom)로 정보성 답 댓글을 단다(카페 공식 존댓말, robot-cafe-content references/style.md). 자작 질문·자작 댓글·가짜 회원은 만들지 않는다(PRD P-6.8). 스팸 후보는 글 번호·제목을 보고에 적고, 사용자가 삭제를 허락한 종류만 지운다.
 3. **기록** — `growth/log.md` 에 날짜·멤버 수(7일 전 대비)·조회 상위 3개·한 일 한 줄씩.
 
+## 주 2회 (월·목) 브리디 블로그 홍보 (2026-11-09 사용자 "브리디 계정에 홍보해라")
+
+브리디 블로그 독자는 반려인이라 **반려동물과 겹치는 로봇 주제**만 쓴다(펫 로봇청소기·자동 급식기·펫캠·로봇강아지 등). 제목은 `keywords.py` 자동완성 검색어로 시작, 브리디 블로그 해요체, 단정 대신 "~로 알려져 있어요". 끝에 로봇천국 소개 두 줄 + `https://cafe.naver.com/zxgamezx`, 그 아래 브리디 기존 마무리(`https://bredy.app/posts`). 사진은 카페 대문(`robot-cafe/assets/gate.png` 를 글 폴더로 복사).
+
+```bash
+D=content/<날짜>-robotcafe   # bredy-marketing 기준 상대 경로
+cd ~/Desktop/pro/bredy-marketing && python3 ~/.claude/skills/bredy-cafe-activity/scripts/naver-photos.py $D/blog-<주제>.txt "<제목>" "브리디 소식" "<태그,…,로봇천국>" $D/robotcafe-gate.png
+```
+발행 뒤 `curl -s -A "Mozilla/5.0 (iPhone)" https://m.blog.naver.com/bredy_team/<번호> | grep -c zxgamezx` 로 링크를 확인하고 `growth/log.md` 에 주소를 적는다. 같은 주제를 두 번 쓰지 않는다(log.md 확인).
+
 ## 주 1회 (월요일)
 
 - 7일 `top_posts_7d` 와 `metrics.csv` 를 보고 무엇이 읽혔는지 `plan.md` '배운 것'에 한 줄 적는다.
