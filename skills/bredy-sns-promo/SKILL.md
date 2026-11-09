@@ -25,7 +25,8 @@ sips -Z 400 output/<폴더>/card.png --out /tmp/preview.png   # Read 로 열어 
 ```
 
 ## 3. 글 파일
-- `caption.txt` (인스타·스레드): 소개 몇 줄 → 빈 줄 → `👉 앱스토어·플레이스토어에서 '브리디' 검색` / `(프로필 링크로도 바로 가요)` → 해시태그 5개.
+- `caption.txt` (인스타): 소개 몇 줄 → 빈 줄 → `👉 앱스토어·플레이스토어에서 '브리디' 검색` / `(프로필 링크로도 바로 가요)` → 해시태그 5개.
+- `threads.txt` (스레드, 2026-11-10 반응 상위 100 실측 — `~/Desktop/pro/bredy-marketing/docs/threads-playbook.md` §2-1): 해시태그·링크·앱 검색 안내 없이 4줄 안팎 반말. 글 하나에 노리는 반응 하나 — 경매는 '응원·댓글'(예: "이 아이 시작가 1만원인데 아직 첫 입찰이 없어 ㅠㅠ / 마감 내일 밤이야 / 너네라면 얼마 부를 것 같아"). 홍보 문구·교훈 맺음 금지.
 - `x.txt`: 한글은 2자로 세서 280자를 넘지 않게 짧게 쓰고, 해시태그는 2개만 넣는다.
 - 블로그 `blog/<날짜>/body.txt`: 여러 건을 한 글로 묶는다.
 
@@ -39,7 +40,7 @@ sips -Z 400 output/<폴더>/card.png --out /tmp/preview.png   # Read 로 열어 
 ## 4. 올리기
 ```bash
 zsh  scripts/post-carousel.sh <caption.txt> <card.png>                  # 인스타
-bash scripts/threads-media.sh <caption.txt> pets <card.png>     # 스레드 (주제는 스크립트가 항상 pets 로 고정, 2026-10-25)
+bash scripts/threads-media.sh <threads.txt> pets <card.png>     # 스레드 (주제는 스크립트가 항상 pets 로 고정, 2026-10-25)
 bash scripts/x-post.sh <x.txt> <card.png>                               # X
 python3 blog/naver-photos.py <body.txt> "<제목>" "브리디 소식" "태그,태그" <카드...>   # 블로그
 ```
