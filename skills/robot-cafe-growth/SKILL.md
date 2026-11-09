@@ -5,7 +5,7 @@ description: 로봇천국 네이버 카페(cafe.naver.com/zxgamezx)의 회원 �
 
 # 로봇천국 성장 점검
 
-목표·진단·실험 목록은 `~/Desktop/pro/robot-cafe/growth/plan.md`(목표: 멤버 10,000명, PRD G-5). 매일 기록은 `growth/metrics.csv`·`growth/log.md`. 전략 근거는 `community-marketing`·`content-strategy` 스킬(필요할 때만 읽는다).
+목표·진단·실험 목록은 `~/Desktop/pro/robot-cafe/growth/plan.md`(목표: 멤버 10,000명, PRD G-5). 매일 기록은 `growth/metrics.csv`·`growth/log.md`. 전략 근거는 `community-marketing`·`content-strategy`·`community-builder`(회원 활성화·정기 행사는 rules/onboarding-member-activation.md·engagement-programs-rituals.md) 스킬 — 필요할 때만 읽는다.
 
 ## 매일 (10분 안)
 
