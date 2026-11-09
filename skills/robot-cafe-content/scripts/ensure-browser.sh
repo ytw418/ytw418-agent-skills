@@ -29,6 +29,8 @@ if [[ "$url" == *nid.naver.com* ]]; then
   url=$($D/pw.sh eval "location.href")
   [[ "$url" == *nid.naver.com* ]] && { echo "로그인 실패(캡차·2단계 인증일 수 있음): $url"; exit 2; }
 fi
+# 2026-11-09: 관리 화면이 개인정보 재인증(pii-auth)으로 넘어가면 로그인은 된 것이다 — 글쓰기엔 관리 권한이 필요 없다(10-30~11-09 등록이 전부 여기서 멈췄다).
+[[ "$url" == *studio.cafe.naver.com/pii-auth* ]] && { echo "준비됨: 로그인 확인(관리 화면은 개인정보 재인증 대기)"; exit 0; }
 ok=$($D/pw.sh eval "document.body.innerText.includes('카페관리') || document.body.innerText.includes('로봇천국')")
 [[ "$ok" == "true" ]] || { echo "카페 관리 화면이 안 열림: $url"; exit 2; }
 echo "준비됨: 로그인·카페 관리 권한 확인"
