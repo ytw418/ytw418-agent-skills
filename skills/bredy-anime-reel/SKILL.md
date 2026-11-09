@@ -73,6 +73,8 @@ description: 브리디 동물(고양이·강아지·크레·햄스터)이 한국
 
 `bredy-meme-reel` 7절 순서를 따른다(인스타 앱 → 음원 검색에 원작 OST → 게시, 스레드 동시 공유 → 유튜브 쇼츠 → 틱톡). 예약이 아니라면 22시 이후·아침에만 올린다(automation-hours). 링크 utm 은 `utm_medium=anime&utm_campaign=<slug>`.
 
+**유튜브 쇼츠는 웹(post-reel.sh)으로 올리지 않는다** — final.mp4 는 무음이라 웹 업로드는 소리 없는 쇼츠가 된다(11-10 첫 편 사고, 사용자 "유튜브에는 왜 소리가 안 나오냐"). 에뮬레이터 유튜브 앱 → 쇼츠 업로드 → '사운드 추가'에서 원작 OST 를 붙여 올린다. 올린 뒤에는 음원을 바꿀 수 없다(Studio 는 무료 음원만). 곡이 쇼츠 사운드에 없으면 유튜브는 건너뛴다.
+
 ## 7. 기록
 
 `content/anime/anime.jsonl` 에 `{date, scene, animal, contrast, audio, subtitles, urls, user_feedback}` 한 줄을 남긴다. 다음날 인스타 인사이트(조회·보내기·저장)를 같은 줄에 채운다. 같은 장면은 30일 안에 다시 쓰지 않는다.
