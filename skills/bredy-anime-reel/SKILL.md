@@ -10,6 +10,11 @@ description: 브리디 동물(고양이·강아지·크레·햄스터)이 한국
 
 작업 폴더 `~/Desktop/pro/bredy-marketing`, 결과물 `content/anime/<YYYY-MM-DD>-<slug>/`. 생성·편집·게시 도구는 `bredy-meme-reel` 스킬의 `scripts/`(gemini-video.sh, frames.sh, emu.sh)와 0절 화면 함정을 그대로 쓴다.
 
+## 0. 실사로 만들지 않는다 (11-09 사용자 "화질이 아니라 기획과 편집이 너무 실사에 집중해서 재미랑 감동이 없었다")
+- **화풍은 애니메이션**이다. Veo 프롬프트 앞에 "90s Japanese anime style, hand-drawn 2D cel animation, bold outlines, flat cel shading, dramatic speed lines, film grain"(장르에 맞게 sports/shonen/slice-of-life)을 넣는다. 동물은 애니 캐릭터처럼 과장한다(땀방울, 결연한 눈, 반짝이는 눈).
+- **애니 연출 문법**: 집중선 클로즈업, 눈만 크게 잡는 컷, 정지 화면 + 큰 대사, 임팩트 프레임(흑백 반전 1~2프레임), 슬로모션, 만화 의성어 글자("덥석!", "스윽").
+- **감정 곡선**: 앞부분은 진짜 감동·긴장인 것처럼 끌어올리고(정적, 숨소리, 천천히 올라가는 곡), 펀치에서 사소한 이유로 뒤집는다. 빌드업이 진지할수록 웃긴다. 웃음만 노린 평평한 전개는 탈락이다.
+
 ## 1. 기획 관문 (셋 다 통과 못 하면 만들지 않는다)
 
 `plan.md` 에 아래를 쓰고 **사용자에게 보여 준 뒤** 2단계로 간다.
