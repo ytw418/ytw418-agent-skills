@@ -69,3 +69,7 @@ python3 blog/naver-photos.py <body.txt> "<제목>" "브리디 소식" "태그,�
 ## 고친 기록
 - X 는 10-21 고침: compose 화면엔 입력칸이 둘(홈·팝업)이라 `[role=dialog]` 안에서 찾고, 사진은 `input[type=file]` 에 직접 넣고, 게시 버튼 클릭은 가려져 막히므로 ⌘+Enter 로 게시한다.
 - 인스타 주소는 10-21 고침: 프로필 맨 앞 고정 게시물 3개를 건너뛴다.
+
+## 배너 광고 문의 (2026-11-10 사용자 결정)
+
+홍보 글의 댓글·DM 으로 '배너 광고·홈 배너 무료' 문의가 오면 답하지 않고 사용자에게 알린다(닉네임 + 받은 말 그대로, todo.md 한 줄). 사용자가 직접 소통한다. 자세한 규칙은 bredy-instagram-outreach `references/templates.md` '메인 배너 광고'.
