@@ -18,11 +18,16 @@ description: 브리디에 올라온 무료 분양글·진행 중 경매를 골�
 - 무료 분양: hycli `list-products`(`price: 0`, `status: 판매중`).
 - 경매: `curl -s "https://bredy.app/api/auctions?page=1&size=3&status=진행중"`. 진행 중인 것만 홍보한다(끝난 경매는 의미가 없다). 마감 시각은 KST 로 바꿔 적는다.
 
-## 2. 카드 만들기
+## 2. 카드 만들기 — 도감 카드 틀 (2026-11-10 사용자 A안 채택, `docs/instagram-brand.md`)
+피드 카드는 전부 `cards/feed-card.mjs` 하나로 만든다(옛 `simple-card.mjs`·`auction.mjs`·`promo.mjs` 는 쓰지 않는다). 종이색 바탕 위 흰 카드, 경매만 검정 카드, 주황은 가격·강조 단어·pill 에만. 마스코트·AI 이미지·버튼 모양 금지.
 ```bash
-node cards/simple-card.mjs "$PWD/output/<폴더>/card.png" "<태그>" "<제목1>" "<제목2(노랑)>" "<설명1>" "<설명2>" "앱스토어·플레이스토어에서 '브리디' 검색 · 프로필 링크" crested-1.jpg
-sips -Z 400 output/<폴더>/card.png --out /tmp/preview.png   # Read 로 열어 사진·글자가 제대로 나왔는지 확인
+node cards/feed-card.mjs product <분양글 id> output/<폴더>      # 01.png 카드 + 02~.png 추가 사진(캐러셀)
+node cards/feed-card.mjs auction <경매 id> output/<폴더>        # 검정 카드, 마감·시작가 자동(끝난 경매는 멈춤)
+node cards/feed-card.mjs text output/<폴더> 가이드 $'크레스티드 게코\n*사육 가이드*' "온도 · 습도 · 먹이"   # *별표* 가 주황
+sips -Z 400 output/<폴더>/01.png --out /tmp/preview.png   # Read 로 열어 사진·이름이 제대로 나왔는지 확인
 ```
+- 제목은 회원이 쓴 그대로 나온다(`cleanTitle` 이 '분양합니다·저렴하게' 만 뺀다). "spt" 처럼 거칠면 이름이 제대로 적힌 글을 고르거나, JSON 을 내려받아 `title` 만 고쳐서 넘긴다.
+- 사진이 흐리거나 개체가 작게 나온 글은 고르지 않는다 — 디자인으로 못 가린다.
 
 ### 경매 스토리 카드 (2026-11-10 사용자 "Repbox 참고해서 꾸준히")
 경매는 피드 카드와 함께 스토리 카드(1080×1920)도 만든다. 마감 시각(KST 오늘/내일/날짜)·현재가·입찰 수는 API 값으로 채우고, 정보 줄·한 줄 소개는 경매 설명에서 뽑는다(없으면 비운다 — 성별·해칭일·무게를 지어내지 않는다).

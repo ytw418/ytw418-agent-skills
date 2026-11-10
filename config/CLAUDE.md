@@ -338,6 +338,7 @@ git push origin <current branch name>
 
 - 운영 배포 = main(production) 대상 PR 머지·main 푸시, Vercel 운영 배포·재배포·승격·롤백, 앱 코드푸시(`ota:update`·`eas update`·롤백), 스토어 제출·운영 빌드, Play 출시·App Store 심사 제출, 운영 배포 워크플로 실행.
 - 사용자가 **그 메시지에서** 배포를 직접 지시했을 때만 한다("배포해", "코드푸시해", "운영까지 반영"). 이전 메시지의 지시·"다 승인할게"는 다음 작업으로 이어지지 않는다. 아니면 dev·브랜치까지만 하고, 무엇을 운영에 낼지(포함 변경·버전·되돌리는 법)를 보여 주고 허락을 묻는다.
+- 범위(2026-11-10 사용자 결정): 개인(브리디·언니노트)은 "배포해"만으로 prod 까지 낸다. 회사(앨리비·큐)는 "demo 배포해"면 demo 까지만, prod 는 그 메시지에 "prod 배포해"처럼 prod·운영을 직접 써야 낸다. 회사 prod 를 내기 전에는 나갈 커밋의 티켓이 모두 QA 완료(`done`)인지 Jira 로 확인하고, 아닌 티켓이 섞여 있으면 올리지 않고 표로 보여 준다(deploy-allibee-frontend 스킬).
 - 훅 `~/.claude/hooks/prod-deploy-guard.py`(UserPromptSubmit 이 그 메시지의 허락을 기록, PreToolUse 가 운영 배포 명령을 막음)가 강제한다. 막히면 우회하지 말고 허락을 받는다. 규칙을 바꾸면 `python3 ~/.claude/hooks/prod-deploy-guard_test.py` 를 돌린다.
 
 ## 14. 개발은 ponytail 스킬로 (MANDATORY, 2026-10-25 사용자 결정)
