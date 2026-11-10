@@ -127,13 +127,15 @@ git -C "$REPO" log --pretty=%s "$OLD_HEAD"..origin/<배포브랜치> \
 - 새 커밋이 없으면(빈 결과 + 범위 없음) 공지를 생략하고 사용자에게 알린다.
 - 티켓 코드가 없는 커밋만 있으면, 티켓 리스트 대신 커밋 제목을 나열할지 사용자에게 확인한다.
 
+티켓마다 Jira 제목(summary)을 조회해 번호 옆에 붙인다 — 번호만 쓰면 QA가 무슨 작업인지 알 수 없다(2026-11-10 사용자 요청). 조회는 `jira_search`에 `key in (...)`·`fields: summary`로 한 번에 한다. 제목은 Jira 원문 그대로 쓰고 고치거나 줄이지 않는다.
+
 메시지 포맷 (이 형식을 그대로 사용):
 
 ```text
 QA존에 아래 내용들 배포 중 입니다 확인 부탁드립니다.
-GEN-1224
-ALLIBEE-223
-ALLIBEE-224
+GEN-1224 <Jira 제목>
+ALLIBEE-223 <Jira 제목>
+ALLIBEE-224 <Jira 제목>
 ```
 
 작성한 메시지를 사용자에게 보여주고 확인받은 뒤, Slack MCP의 `slack_send_message` 도구로 채널 `C06E7CC0FMZ`에 전송한다. Slack MCP를 쓸 수 없으면 메시지를 복사 가능한 형태로 사용자에게 전달한다.
