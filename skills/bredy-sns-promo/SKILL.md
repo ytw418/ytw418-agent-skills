@@ -23,6 +23,7 @@ description: 브리디에 올라온 무료 분양글·진행 중 경매를 골�
 ```bash
 node cards/feed-card.mjs product <분양글 id> output/<폴더>      # 01.png 카드 + 02~.png 추가 사진(캐러셀)
 node cards/feed-card.mjs auction <경매 id> output/<폴더>        # 검정 카드, 마감·시작가 자동(끝난 경매는 멈춤)
+node cards/feed-card.mjs post <게시글 id> output/<폴더>         # 회원 질문·자랑글: 사진 + 제목 + 본문 두 줄(크루 계정 id 99~148 글은 제외)
 node cards/feed-card.mjs text output/<폴더> 가이드 $'크레스티드 게코\n*사육 가이드*' "온도 · 습도 · 먹이"   # *별표* 가 주황
 sips -Z 400 output/<폴더>/01.png --out /tmp/preview.png   # Read 로 열어 사진·이름이 제대로 나왔는지 확인
 ```
