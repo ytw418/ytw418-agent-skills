@@ -1,6 +1,6 @@
 ---
 name: deploy-allibee-frontend
-description: allibee-frontend 레포의 앨리비(contract)/큐(cue) 앱을 dev·demo·prod 환경에 배포한다. 배포 브랜치(develop, master, production, cue/master, cue/production)를 리베이스로 최신화하고 환경별 GitHub Actions 워크플로우를 실행하며, demo 배포 시 새 커밋의 Jira 티켓을 추출해 QA존 Slack 채널에 공지한다. 특정 커밋만 긴급 반영하는 핫픽스 배포(deploy/YYYY-MM-DD 브랜치 + 체리픽 + 브랜치 ref 직접 배포)도 지원한다. allibee-frontend-react(리액트 BA)를 큐 demo에 올리는 배포(react master 승격 → 큐 MFE 발행 → 발행 완료 후 큐 demo 배포. React 단독 배포 워크플로는 돌리지 않는다)도 이 스킬로 한다. 사용자가 '앨리비 배포', '큐 배포', 'dev2 배포', '데모 배포', '프로드 배포', 'cue 배포', 'contract 배포', '리액트 큐 demo 배포', '리액트 큐 dev 배포', '큐랑 리액트큐 배포', '리액트 demo 배포', 'react demo 배포', 'MFE 발행', 'deploy allibee', 'deploy cue' 등을 요청할 때 사용한다.
+description: allibee-frontend 레포의 앨리비(contract)/큐(cue) 앱을 dev·demo·prod 환경에 배포한다. 배포 브랜치(develop, master, production, cue/master, cue/production)를 리베이스로 최신화하고 환경별 GitHub Actions 워크플로우를 실행하며, demo 배포 시 새 커밋의 Jira 티켓을 추출해 큐 QA Slack 채널(#03_cue_qa)에 공지 초안을 넣는다. 특정 커밋만 긴급 반영하는 핫픽스 배포(deploy/YYYY-MM-DD 브랜치 + 체리픽 + 브랜치 ref 직접 배포)도 지원한다. allibee-frontend-react(리액트 BA)를 큐 demo에 올리는 배포(react master 승격 → 큐 MFE 발행 → 발행 완료 후 큐 demo 배포. React 단독 배포 워크플로는 돌리지 않는다)도 이 스킬로 한다. 사용자가 '앨리비 배포', '큐 배포', 'dev2 배포', '데모 배포', '프로드 배포', 'cue 배포', 'contract 배포', '리액트 큐 demo 배포', '리액트 큐 dev 배포', '큐랑 리액트큐 배포', '리액트 demo 배포', 'react demo 배포', 'MFE 발행', 'deploy allibee', 'deploy cue' 등을 요청할 때 사용한다.
 ---
 
 # Deploy Allibee Frontend
@@ -138,7 +138,9 @@ ALLIBEE-223 <Jira 제목>
 ALLIBEE-224 <Jira 제목>
 ```
 
-작성한 메시지를 사용자에게 보여주고 확인받은 뒤, Slack MCP의 `slack_send_message` 도구로 채널 `C06E7CC0FMZ`에 전송한다. Slack MCP를 쓸 수 없으면 메시지를 복사 가능한 형태로 사용자에게 전달한다.
+보낼 곳은 큐 QA 채널 `#03_cue_qa`(`C0AQF0FLQFJ`) 하나다 — 앨리비 QA 채널(`C06E7CC0FMZ`)은 더 쓰지 않는다(2026-11-10 사용자 결정, 앨리비 demo 배포도 같다).
+
+작성한 메시지를 사용자에게 보여주고 확인받은 뒤, `slack_send_message_draft`로 그 채널에 **초안**을 넣고 사용자가 직접 전송하게 한다. `slack_send_message`로 보내면 글에 'Claude를 사용해 보냄' 표시가 붙어서 쓰지 않는다(2026-11-10 사용자 요청). Slack MCP를 쓸 수 없으면 메시지를 복사 가능한 형태로 사용자에게 전달한다.
 
 ## 리액트 큐 demo 배포 (allibee-frontend-react → 큐 demo)
 
