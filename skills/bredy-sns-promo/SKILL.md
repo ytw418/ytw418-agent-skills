@@ -24,6 +24,15 @@ node cards/simple-card.mjs "$PWD/output/<폴더>/card.png" "<태그>" "<제목1>
 sips -Z 400 output/<폴더>/card.png --out /tmp/preview.png   # Read 로 열어 사진·글자가 제대로 나왔는지 확인
 ```
 
+### 경매 스토리 카드 (2026-11-10 사용자 "Repbox 참고해서 꾸준히")
+경매는 피드 카드와 함께 스토리 카드(1080×1920)도 만든다. 마감 시각(KST 오늘/내일/날짜)·현재가·입찰 수는 API 값으로 채우고, 정보 줄·한 줄 소개는 경매 설명에서 뽑는다(없으면 비운다 — 성별·해칭일·무게를 지어내지 않는다).
+```bash
+curl -s "https://bredy.app/api/auctions/<id>" > output/<폴더>/a.json
+node cards/auction-story.mjs output/<폴더>/a.json output/<폴더>/story.png "수컷 | 26.08.13 해칭 | 4g" "한 줄 소개"
+node scripts/post-story.mjs output/<폴더>/story.png      # 인스타 스토리
+```
+마감이 지난 경매는 스크립트가 멈춘다. 진행 중 경매가 여러 개면 한 장씩 따로 올린다(Repbox 처럼 연속 스토리).
+
 ## 3. 글 파일
 - `caption.txt` (인스타): 소개 몇 줄 → 빈 줄 → `👉 앱스토어·플레이스토어에서 '브리디' 검색` / `(프로필 링크로도 바로 가요)` → 해시태그 5개.
 - `threads.txt` (스레드, 2026-11-10 반응 상위 100 실측 — `~/Desktop/pro/bredy-marketing/docs/threads-playbook.md` §2-1): 해시태그·링크·앱 검색 안내 없이 4줄 안팎 반말. 글 하나에 노리는 반응 하나 — 경매는 '응원·댓글'(예: "이 아이 시작가 1만원인데 아직 첫 입찰이 없어 ㅠㅠ / 마감 내일 밤이야 / 너네라면 얼마 부를 것 같아"). 홍보 문구·교훈 맺음 금지.
