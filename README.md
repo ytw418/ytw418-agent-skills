@@ -30,3 +30,13 @@ If Claude's shared skill source is not the current `~/.claude/skills` target, se
 ```bash
 CLAUDE_BASE_SKILLS_DIR=/absolute/path/to/shared/skills ./scripts/sync-skills.sh
 ```
+
+## Antigravity
+
+Antigravity uses the same rules, skills and Claude memories:
+
+```bash
+ln -sfn "$PWD/config/CLAUDE.md" ~/.gemini/GEMINI.md                        # global rules
+ln -sfn "$PWD/config/antigravity-plugin" ~/.gemini/config/plugins/claude-shared  # skills + bridge rule
+# then set "claude-shared": {"enabled": true} under "plugins" in ~/.gemini/config/config.json
+```

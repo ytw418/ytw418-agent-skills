@@ -420,5 +420,6 @@ table.t td .short { white-space: nowrap; }
 .send-note { background: var(--orange-weak); color: var(--orange-ink); border-radius: 12px; padding: 10px 14px; font-size: 14px; line-height: 1.55; }
 .send-note .sn-title { font-weight: 700; }
 .send-note .sn-desc { margin-top: 2px; }
+.sn-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .rel .r-send { margin-top: 4px; font-size: 13px; font-weight: 600; color: var(--orange-ink); }
 .rel .r-wait { margin-top: 4px; font-size: 13px; font-weight: 600; color: var(--blue-ink); }

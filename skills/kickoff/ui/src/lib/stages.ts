@@ -1,4 +1,4 @@
-import type { Project, TaskDetail, Waiting, WorkStage } from "./api";
+import type { Project, SendVia, TaskDetail, Waiting, WorkStage } from "./api";
 import type { Tone } from "../ui";
 
 /** 작업이 흘러가는 순서. 결정 필요는 사용자가 지금 할 일이라 따로 강조한다 */
@@ -34,8 +34,26 @@ export const Q_STATUS_TONE: Record<string, Tone> = {
   "추천(확인 전)": "yellow", "정함": "green", "열림": "grey", "범위 밖": "grey",
 };
 
-/** 화면은 Slack 으로 보내지 않는다. 보내기는 대화창에서 승인받고 한다 */
-export const SEND_HOW = "대화창에서 '질문 보내줘'라고 하면 보낼 곳과 문구를 확인받고 보내요";
+/** 화면은 Slack·Jira 에 직접 보내지 않는다. 버튼은 요청만 남기고, 대화창에서 승인받은 뒤 에이전트가 보낸다 */
+export const SEND_HOW = "'보내기'를 누르면 대화창에 보낼 곳과 글이 떠요. 승인하면 보내요";
+
+const SLACK_LINK = /https:\/\/[\w.-]+\.slack\.com\/archives\/[^\s,)|]+/;
+const JIRA_KEY = /\b[A-Z][A-Z0-9]+-\d+\b/;
+
+/** 보낼 곳: 앞 칸(질문 근거)부터 찾는다. 한 칸에 둘 다 있으면 문의가 온 Slack 스레드, 없으면 Jira 티켓 댓글 */
+export function sendRoute(...texts: string[]): { via: SendVia; target: string } | null {
+  for (const t of texts) {
+    const slack = t.match(SLACK_LINK)?.[0];
+    if (slack) return { via: "slack", target: slack };
+    const jira = t.match(JIRA_KEY)?.[0];
+    if (jira) return { via: "jira", target: jira };
+  }
+  return null;
+}
+
+/** 0장 '출처' 칸 */
+export const sourceOf = (d: TaskDetail) =>
+  d.sections.find((s) => s.no === 0)?.blocks.flatMap((b) => b.rows ?? []).find((r) => r[0] === "출처")?.[1] ?? "";
 
 /** 멈췄거나 끝난 프로젝트는 보낼 질문을 내 차례로 보지 않는다(board.py QUIET_STAGES 와 같다) */
 export const toSendOf = (p: { to_send?: string[]; stage: string }) => (["보류", "완료", "취소"].includes(p.stage) ? [] : p.to_send ?? []);

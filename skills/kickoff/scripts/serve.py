@@ -7,7 +7,8 @@
 화면이 쓰는 것:
   - <작업>/inbox.json : 카드 답·받은 답에 대한 결정·제출 여부. 에이전트가 읽어 brief.md 에 반영한 뒤 inbox-applied/ 로 옮긴다.
   - <작업>/brief.md   : 단계(0장 상태·7장 작업 단계 칸) 변경만 바로 고치고 9장 변경 기록에 한 줄 남긴다.
-Slack 으로 보내는 기능은 두지 않는다. 보낼 질문은 화면에 보여주기만 하고, 보내기는 대화창에서 사용자 승인 뒤에만 한다.
+  - <작업>/requests.json : '보내기'·'답 확인' 버튼 요청. 화면은 Slack·Jira 에 직접 보내거나 읽지 않는다.
+    에이전트가 이 파일을 보고 대화창에서 승인받아 보내거나(질문 보내기) 답을 읽은 뒤(답 확인) 지운다.
 """
 import datetime
 import importlib.util
@@ -40,6 +41,7 @@ NOT_BUILT = """<!doctype html><meta charset="utf-8"><title>킥오프</title>
 npm --prefix {ui} run build</pre></body>"""
 SHOT_TYPES = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp", ".gif": "image/gif"}
 WORK_ID = re.compile(r"^W-\d+$")
+SEND_VIA = {"slack", "jira"}
 
 
 def list_shots(task_dir):
@@ -306,6 +308,7 @@ class Handler(BaseHTTPRequestHandler):
                 "sections": sections_for_ui(text),
                 "cards": read_json(d / "cards.json", None),
                 "inbox": read_json(d / "inbox.json", None),
+                "requests": read_json(d / "requests.json", None),
                 "questions_md": qfile.read_text(encoding="utf-8") if qfile.is_file() else None,
                 "shots": list_shots(d),
                 "updated": int((d / "brief.md").stat().st_mtime),
@@ -327,7 +330,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         if not self.host_ok() or not self.post_ok():
             return
-        m = re.match(r"^/api/task/([^/]+)/(inbox|stage|work)$", self.path.split("?", 1)[0])
+        m = re.match(r"^/api/task/([^/]+)/(inbox|stage|work|request)$", self.path.split("?", 1)[0])
         if not m:
             self.send_json({"error": "없는 주소"}, 404)
             return
@@ -380,6 +383,27 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json({"error": str(e)}, 400)
                 return
             self.send_json({"ok": True})
+            return
+
+        if kind_path == "request":
+            req_path = d / "requests.json"
+            reqs = read_json(req_path, {})
+            if not isinstance(reqs, dict) or not isinstance(reqs.get("send", {}), dict):
+                reqs = {}
+            if body.get("type") == "sync":
+                reqs["sync"] = {"at": now}
+            elif body.get("type") == "send":
+                qids, via, target = body.get("qids"), body.get("via"), one_line(body.get("target"), 300)
+                if (not isinstance(qids, list) or not qids or via not in SEND_VIA or not target
+                        or not all(isinstance(q, str) and re.fullmatch(r"Q-\d+", q) for q in qids)):
+                    self.send_json({"error": f"qids 는 Q-n 목록, via 는 {sorted(SEND_VIA)} 중 하나, target 이 있어야 한다"}, 400)
+                    return
+                reqs.setdefault("send", {}).update({q: {"via": via, "target": target, "at": now} for q in qids})
+            else:
+                self.send_json({"error": "type 은 send / sync"}, 400)
+                return
+            atomic_write(req_path, json.dumps(reqs, ensure_ascii=False, indent=2))
+            self.send_json({"ok": True, "requests": reqs})
             return
 
         inbox_path = d / "inbox.json"

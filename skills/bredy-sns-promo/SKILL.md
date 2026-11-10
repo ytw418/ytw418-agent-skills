@@ -31,7 +31,7 @@ curl -s "https://bredy.app/api/auctions/<id>" > output/<폴더>/a.json
 node cards/auction-story.mjs output/<폴더>/a.json output/<폴더>/story.png "수컷 | 26.08.13 해칭 | 4g" "한 줄 소개"
 node scripts/post-story.mjs output/<폴더>/story.png      # 인스타 스토리
 ```
-마감이 지난 경매는 스크립트가 멈춘다. 진행 중 경매가 여러 개면 한 장씩 따로 올린다(Repbox 처럼 연속 스토리).
+기본 색은 다크(검정 배경·주황 하나, 11-10 사용자 선택), `STORY_THEME=orange|cream` 로 바꿀 수 있다. 마감이 지난 경매는 스크립트가 멈춘다. 진행 중 경매가 여러 개면 한 장씩 따로 올린다(Repbox 처럼 연속 스토리).
 
 ## 3. 글 파일
 - `caption.txt` (인스타): 소개 몇 줄 → 빈 줄 → `👉 앱스토어·플레이스토어에서 '브리디' 검색` / `(프로필 링크로도 바로 가요)` → 해시태그 5개.

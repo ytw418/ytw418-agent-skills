@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { api, shotUrl, type Inbox, type Shot, type WorkItem } from "../../lib/api";
+import { api, shotUrl, type Inbox, type Shot, type TaskDetail, type WorkItem } from "../../lib/api";
 import { Inline } from "../../lib/md";
 import { Q_STATUS_TONE, SEND_HOW, STAGE_HINT, STAGE_TONE, daysSince, daysText, idsOf, waitingWhat, whyParts } from "../../lib/stages";
 import { Badge, BottomSheet, Button, ChatIcon, SegmentedControl, TextArea, useOverlay } from "../../ui";
 import { Option } from "./Decide";
 import { hasUnsent, shownStage } from "./Board";
+import { SendButtons } from "./Send";
 
 const AUTO_STAGES = new Set(["검토 중", "질문 대기", "결정 필요"]);
 
@@ -37,8 +38,8 @@ function promisedText(id: string, r: Record<string, string>, othersAsked: Set<st
 }
 
 /** 작업을 누르면 올라오는 시트: 왜 이 단계인지, 받은 답 정하기, 관련 항목, 단계 바꾸기 */
-export function WorkSheet({ slug, w, shots, ids, othersAsked, inbox, pending, onClose, onMove, refresh }: {
-  slug: string; w: WorkItem | null; shots: Shot[]; ids: Map<string, Record<string, string>>; othersAsked: Set<string>; inbox: Inbox | null; pending: Set<string>;
+export function WorkSheet({ d, slug, w, shots, ids, othersAsked, inbox, pending, onClose, onMove, refresh }: {
+  d: TaskDetail; slug: string; w: WorkItem | null; shots: Shot[]; ids: Map<string, Record<string, string>>; othersAsked: Set<string>; inbox: Inbox | null; pending: Set<string>;
   onClose: () => void; onMove: (w: WorkItem, to: string) => void; refresh: () => void;
 }) {
   const { toast } = useOverlay();
@@ -84,6 +85,7 @@ export function WorkSheet({ slug, w, shots, ids, othersAsked, inbox, pending, on
         <div className="send-note" style={{ marginTop: 16 }}>
           <div className="sn-title">보낼 질문 {unsent.length}개 · 아직 안 보냈어요</div>
           <div className="sn-desc">{SEND_HOW}</div>
+          <SendButtons d={d} qids={unsent} refresh={refresh} />
         </div>
       )}
 

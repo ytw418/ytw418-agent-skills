@@ -111,6 +111,14 @@ export interface Inbox {
   submitted_at?: string;
 }
 
+export type SendVia = "slack" | "jira";
+
+/** 화면 버튼이 남긴 요청(requests.json). 에이전트가 대화창에서 처리하고 지운다 */
+export interface Requests {
+  send?: Record<string, { via: SendVia; target: string; at: string }>;
+  sync?: { at: string };
+}
+
 export interface TaskDetail {
   slug: string;
   dir: string;
@@ -118,6 +126,7 @@ export interface TaskDetail {
   sections: Section[];
   cards: { round?: number; cards: Card[] } | null;
   inbox: Inbox | null;
+  requests?: Requests | null;
   questions_md: string | null;
   shots?: Record<string, Shot[]>;
   updated: number;
@@ -163,6 +172,9 @@ export const api = {
     post<{ inbox: Inbox }>(taskUrl(slug, "inbox"), { type: "reply", qid, decision, note }),
   submit: (slug: string) => post<{ inbox: Inbox }>(taskUrl(slug, "inbox"), { type: "submit" }),
   reopen: (slug: string) => post<{ inbox: Inbox }>(taskUrl(slug, "inbox"), { type: "reopen" }),
+  requestSend: (slug: string, qids: string[], via: SendVia, target: string) =>
+    post<{ requests: Requests }>(taskUrl(slug, "request"), { type: "send", qids, via, target }),
+  requestSync: (slug: string) => post<{ requests: Requests }>(taskUrl(slug, "request"), { type: "sync" }),
   setStage: (slug: string, value: string, note = "") => post<{ ok: boolean }>(taskUrl(slug, "stage"), { value, note }),
   setWorkStage: (slug: string, id: string, stage: string, note = "") =>
     post<{ ok: boolean; changed: boolean }>(taskUrl(slug, "work"), { id, stage, note }),

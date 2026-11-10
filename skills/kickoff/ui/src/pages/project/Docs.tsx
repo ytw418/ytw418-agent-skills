@@ -4,6 +4,7 @@ import type { Section, TaskDetail } from "../../lib/api";
 import { Inline, Table, TextLines } from "../../lib/md";
 import { Q_STATES, Q_STATUS_TONE as STATUS_TONE, SEND_HOW, roles, toSendOf } from "../../lib/stages";
 import { Badge, Button, ListRow, Tabs, useOverlay } from "../../ui";
+import { SendButtons } from "./Send";
 
 type TabKey = "요약" | "요구사항" | "화면 상태" | "검토 항목" | "설계" | "수용 기준" | "질문지" | "기록";
 const TAB_SECTIONS: Record<Exclude<TabKey, "질문지">, number[]> = {
@@ -59,7 +60,7 @@ function sendInfo(internal: string) {
   return { sent, qs };
 }
 
-function Questions({ md, toSend }: { md: string; toSend: string[] }) {
+function Questions({ d, md, toSend }: { d: TaskDetail; md: string; toSend: string[] }) {
   const { toast } = useOverlay();
   const parts = md.replace(/^#\s.*\n?/m, "").replace(/^---\s*$/gm, "").split(/\n(?=## )/);
   const unsent = toSend.length;
@@ -70,6 +71,7 @@ function Questions({ md, toSend }: { md: string; toSend: string[] }) {
         <div className="send-note" style={{ margin: "4px 0 12px" }}>
           <div className="sn-title">아직 안 보낸 질문이 {unsent}개 있어요</div>
           <div className="sn-desc">{SEND_HOW}. 직접 보냈다면 대화창에 '보냈어'라고 알려 주세요</div>
+          <SendButtons d={d} qids={toSend} />
         </div>
       )}
       {parts.map((p, i) => {
@@ -119,7 +121,7 @@ export function Docs({ d, initial }: { d: TaskDetail; initial?: string | null })
     <section className="surface">
       <Tabs items={tabs} value={tab} onChange={change} />
       <div className="doc">
-        {tab === "질문지" && d.questions_md ? <Questions md={d.questions_md} toSend={toSendOf(d.check)} /> : (
+        {tab === "질문지" && d.questions_md ? <Questions d={d} md={d.questions_md} toSend={toSendOf(d.check)} /> : (
           <>
             {tab === "검토 항목" && (
               <>

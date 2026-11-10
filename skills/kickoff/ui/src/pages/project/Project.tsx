@@ -9,6 +9,7 @@ import { Board } from "./Board";
 import { Decide } from "./Decide";
 import { Docs } from "./Docs";
 import { Flow } from "./Flow";
+import { SendButtons, SyncButton } from "./Send";
 import { WorkSheet } from "./WorkSheet";
 
 const STAGE_ACTIONS: { value: string; label: string; desc: string; danger?: boolean }[] = [
@@ -84,7 +85,8 @@ export function Project({ slug, tab }: { slug: string; tab: string | null }) {
               {unsent > 0 && <Badge tone="orange">보낼 질문 {unsent}</Badge>}
               {due && c.asked.length > 0 && <Badge tone={due.left <= 0 ? "red" : due.left <= 1 ? "yellow" : "grey"}>{due.left > 0 ? `확인 희망일 ${due.label} · ${due.left}일 남음` : due.left === 0 ? `오늘이 확인 희망일이에요` : `확인 희망일 ${due.label}이 지났어요`}</Badge>}
             </div>
-            {unsent > 0 && <div className="send-note" style={{ marginTop: 14 }}>{SEND_HOW}</div>}
+            {unsent > 0 && <div className="send-note" style={{ marginTop: 14 }}>{SEND_HOW}<SendButtons d={d} qids={toSendOf(c)} refresh={() => refresh(true)} /></div>}
+            {c.kind.startsWith("회사") && <div className="sn-actions"><SyncButton d={d} refresh={() => refresh(true)} /></div>}
             {waits.length > 0 && <div className="h-waits">{waits.map((w) => <span key={w.owner} className={w.days != null && w.days >= 3 ? "late" : ""}>{waitText(w)}</span>)}</div>}
             {c.early_start && c.blocking.length > 0 && <div className="early">답을 기다리는 동안 먼저 해도 돼요 — <Inline text={c.early_start} /></div>}
           </div>
@@ -110,7 +112,7 @@ export function Project({ slug, tab }: { slug: string; tab: string | null }) {
         <div className="area-docs"><Docs d={d} initial={tab} /></div>
       </main>
 
-      <WorkSheet key={openId ?? "none"} slug={slug} w={open} shots={open ? d.shots?.[open.id] ?? [] : []} ids={ids} othersAsked={othersAsked} inbox={d.inbox} pending={pending} refresh={() => refresh(true)}
+      <WorkSheet key={openId ?? "none"} d={d} slug={slug} w={open} shots={open ? d.shots?.[open.id] ?? [] : []} ids={ids} othersAsked={othersAsked} inbox={d.inbox} pending={pending} refresh={() => refresh(true)}
         onClose={() => setOpenId(null)} onMove={(w, to) => { setOpenId(null); moveWork(w, to); }} />
 
       <BottomSheet open={menu} onClose={() => setMenu(false)} title="프로젝트 단계">
