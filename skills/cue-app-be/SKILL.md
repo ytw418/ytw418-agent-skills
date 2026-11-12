@@ -33,6 +33,7 @@ FE 담당자가 cue-app 에 BE 초안을 올릴 때의 규칙. BE 팀은 하네�
 
 ## 4. 테스트·검증
 
+- **로컬에서 DB·Kafka·docker·앱 서버를 띄우지 않는다.** BE 팀은 코드와 테스트 코드만으로 개발하고 실제 동작은 dev 에 올려 확인한다(금희성 확인, 2026-11-12). 로컬 검증은 아래 gradle 테스트까지다.
 - Kotest `ShouldSpec` + MockK(+ `Arb`/`checkAll` 선호), 클래스당 테스트 파일 하나, `context` 는 메서드 이름. 생성자에 의존성을 더하면 기존 테스트의 생성 부분과 `clearMocks` 도 고친다.
 - CI 는 `./gradlew integrationClasses test` 하나(통합 테스트는 컴파일만). 로컬은 무거운 작업을 한 번에 하나만:
   ```bash
