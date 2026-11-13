@@ -23,6 +23,7 @@ FE 담당자가 cue-app 에 BE 초안을 올릴 때의 규칙. BE 팀은 하네�
 - 오류: `exceptionFactory.requestExceptionOf`(400)·`notFoundExceptionOf`(404)·`forbiddenExceptionOf`(403) + `ErrorMessageKeys.kt` 키 + `message_{ko,en,ja}.properties` 세 언어.
 - 판정은 이미 있는 기준과 맞춘다 — 예: 플랜은 `PAID_PLAN_TYPES`·`NON_BILLABLE_PLAN_TYPES` 가 있지만 FE `isFreePlan`(구독 없음·FREE)과 어긋나면 FE 가 열어 준 화면에서 403 이 난다. 어느 쪽에 맞췄는지 주석 한 줄.
 - 한 줄 120자, 와일드카드 import 금지(ktlint·detekt 없음, `.editorconfig` 만).
+- **주석은 테스트로 바꾼다**(금희성 조언, 2026-11-13): 동작을 설명하는 주석(입력 → 결과, 404·400 같은 오류 조건, 건너뛰기·무시 규칙, 플랜별 응답 차이)은 지우고 그 내용을 테스트 이름과 케이스로 옮긴다. 테스트로 드러낼 수 없는 이유·제약(왜 이 순서인지, 트랜잭션을 왜 여기서 끊는지, 외부 시스템·관례 때문에 이렇게 한 이유)만 주석으로 남긴다. AI 에게 맡길 때는 "주석을 테스트코드로 치환 가능한 건 주석 삭제하고 테스트코드로 작성"이라고 요청한다. `@Operation`·`@Schema` 설명은 API 문서라 주석이 아니다 — 그대로 둔다.
 
 ## 3. 마이그레이션
 
