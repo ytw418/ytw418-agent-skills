@@ -37,7 +37,7 @@ description: 브리디 재미 콘텐츠(멍냥 데뷔전·오늘 우리 아이 �
 | 조건부 | 디스콰이엇 | 승인된 내 프로덕트에 대해서만 글 작성 가능. 11-13 '브리디' 프로덕트 제출·승인 대기(ytw418@gmail.com 이메일 링크 로그인) |
 | 만든 사람 톤으로 올림 (11-13 사용자 결정 — 모든 글에 '제가 만든 브리디' 한 줄) | 디시 강아지 갤(`gall.dcinside.com/board/lists/?id=dog`) | 로그인 없이 기본 닉(멍갤러, readonly)으로 쓴다. 본문은 `.note-editable`, 등록은 `button:visible` 중 글자가 정확히 `등록`인 것의 `.last()`. 11-13 첫 글 no=1116637 |
 | 만든 사람 톤으로 올림 | 보배드림 자유게시판(`board/bulletin/write.php?code=freeb`) | 가입은 이메일 인증(id ytw418, 비번 키체인 `bredy-bobaedream`, 영소문자+숫자 8~12자). 각 칸 onblur 의 `dupliCheck()` 를 직접 부르고 `pass` 확인이 `pass_1` 을 비우므로 `pass_1` 을 다시 넣은 뒤 `formCheck()`. 첫 글 전 '커뮤니티 글쓰기 인증'(휴대폰 문자, 1회 — 번호는 메모 `bredy-business-info`). 글쓰기: `#Subject` + 에디터 iframe(designMode) body 교체 → `a[href='javascript:jsend();']`. 11-14 첫 글 No=3451801 |
-| 로그인됨(11-14 문자 2단계 통과, 9222 프로필) | 네이버 밴드 | 네이버 로그인 → 기존 밴드 계정이라 2단계 문자 인증. 검색 `band.us/search/band?keyword=유기견 봉사`(136개, 대부분 현장 봉사 모임·활동 없으면 제명 규칙). 가입 질문엔 브리디를 만든 사람이라고 쓴다 |
+| 만든 사람 톤으로 올림 | 네이버 밴드 | 네이버 로그인(문자 2단계 1회 통과, 9222 프로필). 가입은 `getByText('밴드 가입하기',{exact:true})` → 프로필 레이어 `section[data-viewname=DProfileSetSelectView] button`(윤성준 기본 선택). 가입 질문 답·글 본문은 `keyboard.type` 으로 넣어야 버튼이 켜진다(fill 은 안 먹음), 답에 전화번호는 막힌다. 글쓰기: '글쓰기' → `.contentEditor` → `button._btnSubmitPost`. 11-14 '유기견 이동봉사나 봉사하러 함께 하실분들'(94274574) 게시, '콜리네천사들'(59277989) 가입 신청 |
 | 앱 전용 글쓰기 | 펫프렌즈 커뮤니티 | 11-14 네이버로 가입 완료(휴대폰 번호+필수 약관 2개만, SMS 없음). 모바일 웹엔 글쓰기 화면이 없다(`/community/write` 404) — 글은 앱에서 |
 | 못 씀 | 디젤매니아(cafe.naver.com/dieselmania, 패션 카페) | 11-14 가입 승인됨. 글쓰기 조건 '방문 50회·댓글 100회', 규정상 상업성 글은 즉시 강퇴 — 조건을 채우려 댓글을 몰아 달지 않는다 |
 | 폰 앱 전용 | 당근 모임(동네 인증), 블라인드 | 사용자 몫 — `personal-todo/todo.md` |
