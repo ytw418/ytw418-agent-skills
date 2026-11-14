@@ -174,8 +174,14 @@ async function openBrowser({ keepTab = false } = {}) {
 async function continueSavedLogin(page) {
   if ((await page.getByText(ACCOUNT).count()) === 0) return false;
   const btn = page.getByRole("button", { name: /^(계속|Continue)/ }).first();
-  if ((await btn.count()) === 0) return false;
-  await btn.click();
+  // 11-12 로그인 화면이 '저장된 프로필 목록'으로 바뀜 — 그 줄은 마우스 클릭이 먹지 않고 element.click() 만 먹는다
+  const picked = (await btn.count()) === 0 && (await page.evaluate((a) => {
+    const row = [...document.querySelectorAll('[role="button"]')].find((e) => e.textContent.trim() === a);
+    row?.click();
+    return !!row;
+  }, ACCOUNT));
+  if (!picked && (await btn.count()) === 0) return false;
+  if (!picked) await btn.click();
   await sleep(6000);
   return true;
 }
@@ -210,7 +216,15 @@ async function dismissPopups(page) {
 }
 
 async function openThread(page, handle, retried = false) {
-  await page.goto(`https://ig.me/m/${handle}`, { waitUntil: "domcontentloaded" });
+  try {
+    await page.goto(`https://ig.me/m/${handle}`, { waitUntil: "domcontentloaded" });
+  } catch {
+    // 2026-11-13 ig.me 가 이 네트워크에서 연결 시간 초과 → 프로필의 '메시지 보내기'로 연다
+    await sleep(1500); // 실패한 이동이 chrome-error 로 끝날 때까지 기다린다(안 기다리면 다음 이동이 끊긴다)
+    await page.goto(`https://www.instagram.com/${handle}/`, { waitUntil: "domcontentloaded" });
+    await sleep(3000);
+    await page.getByRole("button", { name: /^(메시지 보내기|Message)$/ }).first().click({ timeout: 10000 }).catch(() => {});
+  }
   const composer = composerOf(page);
   try {
     await composer.waitFor({ timeout: 15000 });

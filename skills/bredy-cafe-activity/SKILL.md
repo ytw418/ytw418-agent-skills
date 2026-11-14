@@ -70,7 +70,7 @@ python3 scripts/cafe.py run $D/plan.json           # ④ 백그라운드로. 블
    ```
    카페 앱 공지·분양 홍보 글(`[가게이름]`)은 뺀다.
 2. **본문·댓글 읽기** — `https://m.cafe.naver.com/ca-fe/web/cafes/<clubid>/articles/<id>` 를 열어 '작성일'부터 '댓글을 남겨' 앞까지 텍스트만 읽는다. '○촌 등급 이상만 볼 수 있는 게시판'이면 그 카페는 건너뛴다.
-3. **블로그 글** — `content/<YYYY-MM-DD>-cafe/blog-<주제>.txt`. 질문자가 헷갈린 지점부터 답하고, 확인 방법·주의점을 짧은 줄로. 끝 두 줄은 브리디 연결 문장 + 링크(브리디 정보글 `https://bredy.app/posts/<id>` 또는 `https://bredy.app/posts`). **URL 은 맨 마지막 줄**(뒤에 글을 더 치면 링크 미리보기 때문에 에디터 커서가 튀어 순서가 섞인다).
+3. **블로그 글** — `content/<YYYY-MM-DD>-cafe/blog-<주제>.txt`. 질문자가 헷갈린 지점부터 답하고, 확인 방법·주의점을 짧은 줄로. 끝은 아래 '블로그 끝 브리디 안내'(2026-11-13 사용자 결정)로 쓴다. **URL 은 맨 마지막 줄**(뒤에 글을 더 치면 링크 미리보기 때문에 에디터 커서가 튀어 순서가 섞인다).
    ```bash
    python3 ~/.claude/skills/bredy-cafe-activity/scripts/naver-photos.py <본문.txt> "<제목>" "<카테고리>" "<태그,태그>" assets/photos/<CC0 사진>
    ```
@@ -92,5 +92,18 @@ python3 scripts/cafe.py run $D/plan.json           # ④ 백그라운드로. 블
 네이버 블로그(bredy_team) 글에는 **정보글·분양·경매 홍보글 모두** 관련 용품 쿠팡 파트너스 링크를 **하나만** 넣는다(구글 애드센스는 네이버 블로그에 못 넣고, 생물 거래 글에 넣으면 AdMob 계정까지 위험해서 쓰지 않는다).
 - 링크 만들기: `bash ~/Desktop/pro/bredy-marketing/scripts/coupang-link.sh "<검색어 또는 쿠팡 주소>"` → `https://link.coupang.com/a/...`(트래킹 AF2109367, 자동화 크롬 파트너스 로그인 사용). 검색어는 글 주제 용품(예: `크레스티드게코 슈퍼푸드`, `게코 사육장`, `거북이 여과기`). 생물 자체는 링크하지 않는다.
 - 위치: 본문 끝, 브리디 안내 줄 **앞**. `🛒 같이 쓰면 좋은 용품: <링크>` 한 줄 → 빈 줄 → 대가성 문구 → 빈 줄 → 브리디 안내(맨 마지막).
+
+## 블로그 끝 브리디 안내 (2026-11-13 사용자 결정 — "쿠팡만 강조돼 있다")
+쿠팡 링크는 작게, 브리디가 더 눈에 띄게 한다. 모든 블로그 글에:
+- **사진**: 주제 CC0 사진 + 브리디 앱 화면 사진 1장을 함께 올린다(`naver-photos.py` 사진 인자에 `assets/app-shots/03-home-feed.jpg`(질문하면 답해요) 추가. 분양·경매 글이면 `02-post-dog.jpg`·`01-collage.jpg` 중 맞는 것). 앱 사진은 `bredy_app/store-assets/screenshots/ios/` 사본이다.
+- **끝 문구**(쿠팡·대가성 문구 뒤, 이 순서로, 맨 끝 URL = 다운로드):
+  ```
+  브리디에 더 많은 정보가 있어요
+  https://bredy.app/posts
+
+  브리디 앱 다운로드
+  https://bredy.app/download?utm_source=naver_blog&utm_medium=blog&utm_campaign=<날짜>
+  ```
+- 카페 댓글에는 여전히 bredy.app 링크를 넣지 않는다(블로그 링크만).
 - 대가성 문구(빼면 공정위 표시 위반): `이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.`
 - 카페 댓글·인스타·스레드·X 에는 쿠팡 링크를 넣지 않는다(블로그만).

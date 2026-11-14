@@ -64,8 +64,8 @@ def main():
     out = pw("click", need(r'button "사진 추가"', "사진 버튼"))
     if "File chooser" not in out:
         print("파일 선택 창이 안 뜸"); sys.exit(1)
-    pw("upload", *[f"{CWD}/{p}" for p in photos])
-    time.sleep(6)
+    pw("upload", *[p if p.startswith("/") else f"{CWD}/{p}" for p in photos])
+    time.sleep(6 + 2 * len(photos))  # 2026-11-13 절대 경로·사진 7장 대응
     ind = refs(r'generic \[ref=[^]]+\] \[cursor=pointer\]: 개별사진')
     if ind:
         pw("click", ind[0]); time.sleep(4)
