@@ -86,6 +86,9 @@ def check(plan):
                     bad.append(f"{tag}: 블로그 글 마지막 줄이 URL 이 아님")
         elif "{BLOG}" in c:
             bad.append(f"{tag}: blog 없는데 {{BLOG}} 있음")
+        # 2026-11-19 사용자 "그냥 답글만 달던데 링크를 공유하던가": 새 블로그 글이 없으면 이미 쓴 같은 주제 블로그 글 주소를 맨 끝에.
+        elif not c.rstrip().splitlines()[-1].startswith("https://blog.naver.com/bredy_team/"):
+            bad.append(f"{tag}: 댓글 맨 끝 줄에 블로그 링크 필요(새 글이 없으면 이미 쓴 bredy_team 글 주소)")
     return bad
 
 

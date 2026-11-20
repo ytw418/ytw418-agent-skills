@@ -85,7 +85,9 @@ const DEBATE_QUESTION_MAX = 40;
 const DEBATE_OPTION_MAX = 12;
 const DEBATE_DESCRIPTION_MAX = 1000;
 const DEBATE_DURATIONS_HOURS = [72, 168, 24];
-const DEBATE_DAILY_LIMIT = 3;
+/** 2026-11-17 사용자 "크루들 글쓰는건 계정당 하루 한개로, 댓글은 예외": 글·토론 합쳐 한국 날짜 하루 1개. */
+const CREW_POSTS_PER_DAY = 1;
+const kstDay = (iso) => new Date(new Date(iso).getTime() + 9 * 3600e3).toISOString().slice(0, 10);
 /** 크루는 거래하지 않으므로 가게·판매자처럼 보이는 닉네임을 쓰지 않는다. */
 const SELLER_LIKE_NICK = /샵|shop|스토어|store|분양|판매|매장|마켓/i;
 
@@ -380,7 +382,9 @@ function validatePlan(plan, roster) {
   const snapshotPosts = new Map((readJson(SNAPSHOT_FILE, { posts: [] }).posts ?? []).map((p) => [p.id, p]));
   const knownTitles = new Set(postHistory.map((h) => titleKey(h.title)));
   const snapshotTitles = new Set([...snapshotPosts.values()].map((p) => titleKey(p.title)));
-  const debatesByCrew = {};
+  const today = kstDay(new Date().toISOString());
+  const postsByCrew = {};
+  for (const h of postHistory) if (h.at && kstDay(h.at) === today) postsByCrew[h.crew] = (postsByCrew[h.crew] ?? 0) + 1;
   const counts = {};
   const errors = [];
 
@@ -417,6 +421,7 @@ function validatePlan(plan, roster) {
           if (!fs.existsSync(path.resolve(ROOT, p))) errors.push(`${at}: 사진 파일이 없습니다 ${p}`);
         }
         if ((action.imagePaths ?? []).length > 10) errors.push(`${at}: 사진은 10장까지`);
+        postsByCrew[action.crew] = (postsByCrew[action.crew] ?? 0) + 1;
         checkGroup();
         checkTitle();
         break;
@@ -433,7 +438,7 @@ function validatePlan(plan, roster) {
         else if (a.toLowerCase() === b.toLowerCase()) errors.push(`${at}: 두 선택지가 같습니다`);
         if (!DEBATE_DURATIONS_HOURS.includes(action.durationHours ?? 72)) errors.push(`${at}: 기간은 ${DEBATE_DURATIONS_HOURS.join("·")}시간 중 하나`);
         if (String(action.description ?? "").trim().length > DEBATE_DESCRIPTION_MAX) errors.push(`${at}: 설명 ${DEBATE_DESCRIPTION_MAX}자 넘음`);
-        debatesByCrew[action.crew] = (debatesByCrew[action.crew] ?? 0) + 1;
+        postsByCrew[action.crew] = (postsByCrew[action.crew] ?? 0) + 1;
         checkGroup();
         checkTitle();
         break;
@@ -480,8 +485,9 @@ function validatePlan(plan, roster) {
   for (const [type, limit] of Object.entries(RUN_LIMITS)) {
     if ((counts[type] ?? 0) > limit) errors.push(`${type} ${counts[type]}개 — 한 번에 ${limit}개까지`);
   }
-  for (const [crew, n] of Object.entries(debatesByCrew)) {
-    if (n > DEBATE_DAILY_LIMIT) errors.push(`${crew} 토론 ${n}개 — 서버가 하루 ${DEBATE_DAILY_LIMIT}개까지 받는다`);
+  const planPosters = new Set((plan.actions ?? []).filter((x) => x.type === "post" || x.type === "debate").map((x) => x.crew));
+  for (const [crew, n] of Object.entries(postsByCrew)) {
+    if (planPosters.has(crew) && n > CREW_POSTS_PER_DAY) errors.push(`${crew} 오늘 글·토론 ${n}개(이미 올린 것 포함) — 크루는 하루 ${CREW_POSTS_PER_DAY}개까지, 댓글은 예외`);
   }
   return { errors, counts, members, crewIds };
 }
