@@ -331,7 +331,7 @@ async function snapshot(flags) {
   const posts = [];
 
   for (let page = 1; page <= pages; page += 1) {
-    const data = await api("GET", `/api/posts?page=${page}&sort=latest`);
+    const data = await api("GET", `/api/posts?page=${page}&sort=latest&includeCrew=1`);
     for (const post of data.posts) {
       const detail = await api("GET", `/api/posts/${post.id}`);
       const d = detail.post;
