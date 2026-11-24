@@ -359,14 +359,43 @@ async function snapshot(flags) {
     if (page >= data.pages) break;
   }
 
+  // 2026-11-24 사용자 "분양글 경매글 보호소 강아지, 고양이 최신글들 위주로" 크루 댓글 → 최근 분양글·보호소·진행 중 경매도 읽는다
+  const listings = [];
+  const listingSources = [
+    ["product", "/api/products?page=1"],
+    ["product", "/api/products?page=2"],
+    ["product", "/api/products?source=shelter&page=1"],
+    ["auction", "/api/auctions?page=1"],
+  ];
+  const seen = new Set();
+  for (const [kind, url] of listingSources) {
+    const data = await api("GET", url).catch(() => ({}));
+    for (const it of data.products ?? data.auctions ?? []) {
+      if (seen.has(`${kind}:${it.id}`) || (kind === "auction" && it.status !== "진행중")) continue;
+      seen.add(`${kind}:${it.id}`);
+      const { comments = [] } = await api("GET", `/api/${kind}s/${it.id}/comments`).catch(() => ({}));
+      listings.push({
+        kind,
+        id: it.id,
+        createdAt: it.listedAt ?? it.createdAt,
+        category: it.category,
+        shelter: Boolean(it.externalSource),
+        title: it.name ?? it.title,
+        description: clip(it.description, 400),
+        author: { id: it.user?.id, name: it.user?.name, isCrew: crewIds.has(it.user?.id) },
+        comments: comments.map((c) => ({ id: c.id, author: { id: c.user?.id, name: c.user?.name, isCrew: crewIds.has(c.user?.id) }, comment: clip(c.comment, 200) })),
+      });
+    }
+  }
+
   const recentCrewTitles = readJsonl(HISTORY_FILE)
     .filter((h) => h.type === "post")
     .slice(-200)
     .map((h) => ({ crew: h.crew, title: h.title, at: h.at }));
 
-  writeJson(SNAPSHOT_FILE, { takenAt: new Date().toISOString(), posts, recentCrewTitles });
+  writeJson(SNAPSHOT_FILE, { takenAt: new Date().toISOString(), posts, listings, recentCrewTitles });
   const real = posts.filter((p) => !p.author.isCrew).length;
-  console.log(`게시글 ${posts.length}개(크루 아닌 글 ${real}개) → ${path.relative(ROOT, SNAPSHOT_FILE)}`);
+  console.log(`게시글 ${posts.length}개(크루 아닌 글 ${real}개) · 분양·경매 ${listings.length}개 → ${path.relative(ROOT, SNAPSHOT_FILE)}`);
 }
 
 /* ------------------------------------------------------------------ */
@@ -380,6 +409,7 @@ function validatePlan(plan, roster) {
   const postHistory = readJsonl(HISTORY_FILE).filter((h) => h.type === "post");
   const postAuthor = new Map(postHistory.map((h) => [h.id, h.crew]));
   const snapshotPosts = new Map((readJson(SNAPSHOT_FILE, { posts: [] }).posts ?? []).map((p) => [p.id, p]));
+  const snapshotListings = new Map((readJson(SNAPSHOT_FILE, {}).listings ?? []).map((l) => [`${l.kind}:${l.id}`, l]));
   const knownTitles = new Set(postHistory.map((h) => titleKey(h.title)));
   const snapshotTitles = new Set([...snapshotPosts.values()].map((p) => titleKey(p.title)));
   const today = kstDay(new Date().toISOString());
@@ -455,6 +485,20 @@ function validatePlan(plan, roster) {
         else if (!own && targetGroup && targetGroup !== persona?.group) {
           errors.push(`${at}: 글 #${action.postId} 는 ${targetGroup} — ${action.crew} 는 ${persona?.group} 댓글 크루`);
         }
+        break;
+      }
+      case "listing-comment": {
+        // 분양글·경매 댓글: { type, crew, listing: "product"|"auction", id, comment } — 대댓글 없음
+        const len = String(action.comment ?? "").trim().length;
+        if (!["product", "auction"].includes(action.listing)) errors.push(`${at}: listing 은 product 또는 auction`);
+        if (!Number.isInteger(action.id)) errors.push(`${at}: id 가 없습니다`);
+        if (!len || len > COMMENT_MAX) errors.push(`${at}: 댓글 ${len}자(1~${COMMENT_MAX})`);
+        if (role !== "댓글") errors.push(`${at}: ${action.crew} 는 ${role} 크루 — 분양·경매 댓글은 댓글 크루만`);
+        const target = snapshotListings.get(`${action.listing}:${action.id}`);
+        if (!target) errors.push(`${at}: 스냅샷에 없는 ${action.listing} #${action.id}`);
+        else if (target.author.isCrew) errors.push(`${at}: 크루가 올린 글에는 달지 않는다`);
+        const targetGroup = groupOf(target?.category);
+        if (targetGroup && targetGroup !== persona?.group) errors.push(`${at}: ${action.listing} #${action.id} 는 ${targetGroup} — ${action.crew} 는 ${persona?.group} 댓글 크루`);
         break;
       }
       case "town": {
@@ -549,6 +593,12 @@ async function runAction(action, member) {
       });
       return { id: answer.id, postId: action.postId };
     }
+    case "listing-comment": {
+      const { comments = [] } = await api("GET", `/api/${action.listing}s/${action.id}/comments`, { token });
+      if (comments.some((c) => c.user?.id === member.userId)) return { skipped: "이 크루가 이미 댓글을 달았습니다" };
+      const { id } = await api("POST", `/api/${action.listing}s/${action.id}/comments`, { token, body: { comment: action.comment.trim() } });
+      return { id, [action.listing]: action.id };
+    }
     case "town": {
       const { townMessage } = await api("POST", "/api/town/messages", {
         token,
@@ -634,10 +684,10 @@ function lintPlan(plan) {
   const comments = [];
 
   (plan.actions ?? []).forEach((action, index) => {
-    if (!["post", "debate", "comment", "town"].includes(action.type)) return;
+    if (!["post", "debate", "comment", "listing-comment", "town"].includes(action.type)) return;
     const at = `#${index} ${action.type} ${action.crew}`;
-    const short = action.type === "comment" || action.type === "town";
-    const text = String(action.type === "comment" ? action.comment ?? "" : action.type === "town" ? action.body ?? "" : action.description ?? "");
+    const short = action.type === "comment" || action.type === "listing-comment" || action.type === "town";
+    const text = String(action.type === "comment" || action.type === "listing-comment" ? action.comment ?? "" : action.type === "town" ? action.body ?? "" : action.description ?? "");
     const title = String(action.title ?? "");
     const voice = voiceOf.get(action.crew) ?? "default";
     const whole = `${title}\n${text}`;
