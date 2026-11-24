@@ -48,7 +48,7 @@ description: 기획자 원페이저(Jira '기능'·'스토리' 티켓)를 받아
   - `window.TOTAL`, `window.SHOTS = [['<파일이름>', 초], ...]` 를 내보낸다. `?s=N` 은 N번 장면에 멈춤, `?record=1` 은 녹화용.
 - 녹화: `node scripts/record-mockup.mjs <mockup.html> <outDir> <영상이름>` — 회사 자동화 크롬(9224)에 자기 탭을 열어 프레임을 캡처하고 ffmpeg 로 mp4, `SHOTS` 시각마다 PNG 를 남긴다. `QUICK=1` 이면 PNG 만.
 - 확인: PNG 를 전부 열어 본다. 영상은 `ffmpeg -i x.mp4 -vf "fps=1/2,scale=360:-1,tile=6x4" /tmp/sheet_%02d.png` 로 모아 끝까지 본다. 커서가 누르는 버튼을 가리키는지, 캡션이 화면을 가리지 않는지 본다.
-- 티켓에 올리기: Jira MCP 는 세션 작업 폴더 밖 파일을 못 올린다 → 작업 폴더 안 `.tmp-<KEY>/` 로 복사 → `jira_update_issue` `attachments` → 임시 폴더 삭제. 본문에 '## 목업 시안 (1차, 날짜)' 절(장면별 한 줄 + `![](파일)`)과 '목업에서 임의로 정한 것' 절을 넣는다. 본문 이미지 박기는 `jira-qa-review` 의 `scripts/jira-embed.mjs`(실패하면 첨부만 두고 보고).
+- 티켓에 올리기: Jira MCP 는 세션 작업 폴더 밖 파일을 못 올린다 → 작업 폴더 안 `.tmp-<KEY>/` 로 복사 → `jira_update_issue` `attachments` → 임시 폴더 삭제. 본문에 '## 목업 시안 (1차, 날짜)' 절(장면별 한 줄 + `![](파일)`)과 '목업에서 임의로 정한 것' 절을 넣는다. 본문 이미지는 전역 훅 `jira-image-embed.py` 가 저장 직후 `jira-qa-review` 의 `scripts/jira-embed.mjs` 로 자동으로 박는다(훅이 막으면 안내대로 첨부를 고치고 다시 돌린다). 댓글엔 이미지를 넣지 않는다. 이미지 사이에 번호 목록을 두지 않는다.
 
 ## 4. 가짜 API 로 개발 (api-temp-patch)
 
