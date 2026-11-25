@@ -86,7 +86,7 @@ const DEBATE_OPTION_MAX = 12;
 const DEBATE_DESCRIPTION_MAX = 1000;
 const DEBATE_DURATIONS_HOURS = [72, 168, 24];
 /** 2026-11-17 사용자 "크루들 글쓰는건 계정당 하루 한개로, 댓글은 예외": 글·토론 합쳐 한국 날짜 하루 1개. */
-const CREW_POSTS_PER_DAY = 1;
+const CREW_POSTS_PER_DAY = 3; // 2026-11-25 사용자 "한도 늘려" — 카페 Q&A 글이 1개 한도에 막혀 1→3
 const kstDay = (iso) => new Date(new Date(iso).getTime() + 9 * 3600e3).toISOString().slice(0, 10);
 /** 크루는 거래하지 않으므로 가게·판매자처럼 보이는 닉네임을 쓰지 않는다. */
 const SELLER_LIKE_NICK = /샵|shop|스토어|store|분양|판매|매장|마켓/i;
