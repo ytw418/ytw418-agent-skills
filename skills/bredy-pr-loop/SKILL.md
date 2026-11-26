@@ -1,6 +1,6 @@
 ---
 name: bredy-pr-loop
-description: 브리디(breeder_web 웹·서버 + bredy_app 앱)에서 기획·시안이 확정된 기능을 개발→독립 리뷰→수정→e2e(웹 Playwright·앱 에뮬레이터 1대)→문제 수정을 반복해 머지 직전까지 만들고, 디자인 게이트를 통과한 캡처 한 장과 PR 링크로 '머지할까요?'만 묻는다. 사용자가 "PR 루프로 해", "기획 확정됐으니 만들어서 머지 직전까지", "리뷰·e2e까지 알아서 반복", "끝까지 처리해"라고 할 때 쓴다. 기획·시안이 아직 없으면(→ bredy-feature-flow·hjjm-prd), 배포만(→ breeder-web-deploy·bredy-app-deploy), 문구 한 줄 수정에는 쓰지 않는다.
+description: 브리디(breeder_web 웹·서버 + bredy_app 앱) PR 루프 — 기획·시안이 정해진 기능이나 이미 열린 브리디 PR 을 개발→독립 리뷰→수정→e2e(웹 Playwright·앱 에뮬레이터 1대)→수정 반복으로 머지 직전까지 만들고 캡처 한 장과 "머지할까요?"만 묻는다. 사용자가 "PR 루프", "pr루프 돌려", "prworkflowloop", "pr-completion-loop 처럼", "루프 돌려서 머지 직전까지", "리뷰·e2e까지 알아서 반복", "끝까지 처리해", "PR #N 마무리해"라고 하면 쓴다. 브리디가 아닌 회사(allibee) 저장소는 pr-completion-loop 를 쓴다. 기획·시안 단계(bredy-feature-flow·hjjm-prd), 배포만(breeder-web-deploy·bredy-app-deploy), 문구 한 줄 수정에는 쓰지 않는다.
 ---
 
 # 브리디 PR 루프 (개발 → 리뷰 → 수정 → e2e → 캡처 → 머지)
@@ -19,7 +19,7 @@ description: 브리디(breeder_web 웹·서버 + bredy_app 앱)에서 기획·�
 
 ## 0. 입력과 모드
 
-1. **입력 확인**: 확정된 PRD(`bredy_app/docs/prd/<기능>.md`)와 채택 시안(`design/mockups/<기능>/`, 또는 `/mnt/project-files/<기능>/` 시안 PNG). 둘 다 없으면 이 스킬을 멈추고 ①부터 하자고 한 줄로 말한다. 작은 수정은 사용자 요청 문장이 곧 기획이다.
+1. **입력 확인**: 이미 열린 PR 이면 그 PR 의 기획·시안 링크와 현재 상태(끝난 게이트)부터 읽고 남은 게이트만 돈다. 새 기능이면 확정된 PRD(`bredy_app/docs/prd/<기능>.md`)와 채택 시안(`design/mockups/<기능>/`, 또는 `/mnt/project-files/<기능>/` 시안 PNG). 둘 다 없으면 이 스킬을 멈추고 ①부터 하자고 한 줄로 말한다. 작은 수정은 사용자 요청 문장이 곧 기획이다.
 2. **모드** (말이 없으면 `fast` 로 시작, 아래 조건일 때만 올린다)
    - `fast`: 파일 몇 개, 화면 하나. 독립 리뷰 없이 정적 검사 + e2e 한 시나리오. 목표 20분.
    - `standard`: 웹·앱·서버에 걸친 보통 기능. 독립 리뷰어 1명. 목표 1시간.
