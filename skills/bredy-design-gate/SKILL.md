@@ -19,7 +19,7 @@ description: 브리디 새 화면·개편을 사용자에게 보여 주기 전�
 
 ## 0. 작업 폴더
 
-`/mnt/project-files/design-gate/<YYYYMMDD>-<화면>/` (맥에서만 돌 때는 `~/Desktop/pro/breeder_web/.design-gate/<…>/`)
+`/mnt/project-files/design-gate/<YYYYMMDD>-<화면>/` (맥에서 찍을 때는 `~/Desktop/design-gate/<…>/` — 저장소 안에 두지 않는다)
 
 ```
 refs/        기준 앱 캡처 (ref-<앱>-<장면>.png)
@@ -57,6 +57,13 @@ final.png    사용자에게 보낼 한 장
 1. 맥 에뮬레이터에 설치된 앱(`adb exec-out screencap -p`). **에뮬레이터는 한 번에 하나**, 쓰고 끈다. 스왑 20GB 넘으면 띄우지 않는다.
 2. 모바일 웹(m.naver.com, 당근 웹, feedle.me 등)을 Playwright 모바일 뷰포트(390×844, deviceScaleFactor 2)로
 3. 위가 안 되면 앱스토어·플레이스토어 공식 스크린샷 — 이 경우 gate.md 에 '스토어 이미지'라고 적는다
+
+2026-11-26 첫 시험에서 알게 된 것(캡처가 가장 약한 고리다):
+- 클라우드 컨테이너는 naver·daangn·apple 접속이 막혀 있다 → 기준 캡처는 **맥**(Playwright 는 `~/Desktop/pro/breeder_web/node_modules/playwright`)에서 찍어 `device_stage_files` 로 가져온다.
+- 잘 찍힘: m.youtube.com(쇼츠 2열), m.search.naver.com 검색 결과(쇼핑 인기상품 목록), airbnb.co.kr(팝업 닫은 뒤 홈).
+- 막힘: msearch.shopping.naver.com(봇 차단), ohou.se(Access Denied), 당근 앱은 에뮬레이터에서 '보안 위협'으로 종료, 인스타 앱은 bredy_sns 에뮬레이터에 로그아웃 상태(SNS 자동화 계정이라 여기서 로그인하지 않는다).
+- 그래서 한 번 찍은 좋은 기준은 `/mnt/project-files/design-gate/refs-library/<앱>-<장면>.png` 에 모아 다시 쓴다. 매번 새로 찍지 않는다. 당근·토스·인스타처럼 자동으로 못 찍는 앱은 사용자 폰 캡처가 생기면 여기에 넣는다(사용자에게 따로 부탁하지는 않는다).
+- 로고·서비스 이름(검색창 N 로고, 유튜브 로고)은 흰 칸으로 가린다. 다 가릴 수 없으면 gate.md 에 '블라인드 약함'이라고 적는다.
 
 장면은 우리 화면과 같은 상태로 맞춘다(목록 첫 화면 ↔ 목록 첫 화면, 빈 상태 ↔ 빈 상태). 개인정보가 보이면 가린다.
 
