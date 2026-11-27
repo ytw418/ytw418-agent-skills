@@ -35,3 +35,12 @@ Impeccable 엔진: 첫 실행 때 GitHub 릴리스에서 바이너리를 받아 
 
 바꾼 것: 각 SKILL.md 맨 위 브리디 적용 메모(용어표·유료 파트너 도구 안 씀·캐시 규칙 / 로컬 next dev 모바일 캡처), marketingskills evals 제외.
 안 넣은 것: doc-coauthoring(사용자에게 맥락을 한참 묻는 대화형 흐름이라 '사용자 손 최소화' 규칙과 맞지 않고, PRD 에도 발동해 hjjm-prd 와 겹침 → 릴리스 노트·FAQ·약관·문의는 bredy-cs-docs 로), marketingskills 의 pricing·referrals·launch 등(PM 스킬·growth-loops·shipping-and-launch 와 겹침), community-marketing·content-strategy(이미 있음).
+
+## SEO·AI 검색 (11-27 추가)
+
+| 스킬 | 출처 | 커밋 | 라이선스 |
+|---|---|---|---|
+| keyword-research, seo-content, programmatic-seo | boringmarketer/boring-marketing-skills | bd5aaed | MIT (각 폴더 LICENSE) |
+
+바꾼 것: SKILL.md 맨 위 브리디 적용 메모(네이버 검색도 같이 봄·유료 도구 안 씀·`./brand/` 안 만듦·용어표·캐시 규칙), 묶음 공용 `start-here/references` 의 taste-loop·output-format(+ content-brief 스키마)을 각 스킬 `shared/` 로 복사하고 경로를 고침.
+안 넣은 것: ai-search(ai-seo 와 겹침), site-audit(seo-audit 와 겹침), start-here(`./brand/` 파일을 만드는 진입 스킬), 지역 사업용(local-seo-plan·service-area-pages·google-business-profile·find-local-clients·pitch-the-fix·first-screen-check·speed-to-lead·reviews), 광고(paid-ads·meta-ads·google-ads-tracking·ads-incrementality-check — 광고 집행 계획 없음), 문구·SNS(direct-response-copy·landing-page·social-content·content-atomizer·brand-voice — copywriting·bredy-sns-growth 와 겹침), 나머지 마케팅 묶음(email-sequences·newsletter·lead-magnet·creative 등).
