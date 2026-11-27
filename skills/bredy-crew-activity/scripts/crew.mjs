@@ -333,7 +333,9 @@ async function snapshot(flags) {
   for (let page = 1; page <= pages; page += 1) {
     const data = await api("GET", `/api/posts?page=${page}&sort=latest&includeCrew=1`);
     for (const post of data.posts) {
-      const detail = await api("GET", `/api/posts/${post.id}`);
+      // 운영 정책으로 숨긴 글은 상세가 막혀 스냅샷 전체가 멈춘다 → 건너뛴다
+      const detail = await api("GET", `/api/posts/${post.id}`).catch(() => null);
+      if (!detail?.post) continue;
       const d = detail.post;
       posts.push({
         id: d.id,

@@ -1,6 +1,6 @@
 ---
 name: bredy-sns-promo
-description: 브리디에 올라온 무료 분양글·진행 중 경매를 골라 홍보 카드(1080×1350)를 만들고 인스타(bredy_breeder)·스레드(bredy_breeder)·X(자동화 크롬에 로그인된 계정)·네이버 블로그(bredy_team) 4곳에 올린 뒤 실제로 올라갔는지 확인한다. 사용자가 '무료 분양 홍보해줘', '경매 홍보 올려줘', '분양글 SNS에 올려', '인스타 스레드 X 블로그에 올려줘', '브리디 매물 홍보' 등을 요청할 때 사용한다. 틱톡은 올리지 않는다(2026-10-21 사용자 결정). 영업 DM 은 bredy-instagram-outreach, 카페 댓글은 bredy-cafe-activity.
+description: 브리디에 올라온 무료 분양글·진행 중 경매를 골라 홍보 카드(1080×1350)를 만들고 인스타(bredy_official)·스레드(bredy_official)·X(자동화 크롬에 로그인된 계정)·네이버 블로그(bredy_team) 4곳에 올린 뒤 실제로 올라갔는지 확인한다. 사용자가 '무료 분양 홍보해줘', '경매 홍보 올려줘', '분양글 SNS에 올려', '인스타 스레드 X 블로그에 올려줘', '브리디 매물 홍보' 등을 요청할 때 사용한다. 틱톡은 올리지 않는다(2026-10-21 사용자 결정). 영업 DM 은 bredy-instagram-outreach, 카페 댓글은 bredy-cafe-activity.
 ---
 
 # 브리디 매물 SNS 홍보

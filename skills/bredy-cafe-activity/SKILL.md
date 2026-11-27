@@ -54,7 +54,9 @@ cd ~/Desktop/pro/bredy-marketing   # cafe.py 는 저장소 scripts/ 에도 같�
 D=content/$(date +%F)-cafe; mkdir -p $D
 python3 scripts/cafe.py collect $D/cands.json 30   # ① 후보 + 본문·댓글 요약 (스크롤 6·댓글 3개 이하는 기본값, 이미 단 글·등급 잠금 제외)
 # ② 고른 질문으로 블로그 글 파일(content/…/blog-주제.txt, URL 은 맨 마지막 줄)과 $D/plan.json 을 Write 로 만든다:
-#    [{"cafe":"hby|reptilia","id":…,"comment":"…\n{BLOG}", "blog":{"file","title","category","tags","photo"}}]
+#    [{"cafe":"hby|reptilia","id":…,"comment":"…\n{BLOG}", "blog":{"file","title","category","tags","photo":"<bredy-photos.py 마지막 줄>"}}]
+#    사진: python3 -I blog/bredy-photos.py "<종 이름,줄임말>" 4  → 브리디 회원 사진, 글마다 다른 사진(아래 3번)
+#    블로그 글은 '검색형 기준'(아래 3번)대로 — --dry 가 1,200자·사진 3장 미만을 막는다
 python3 scripts/cafe.py run $D/plan.json --dry     # ③ 게시 없이 plan 검사(링크 위치·파일 존재·이미 단 글·bredy.app 금지)
 python3 scripts/cafe.py run $D/plan.json           # ④ 백그라운드로. 블로그 발행 → 댓글({BLOG} 치환) → $D/log.md, 댓글 사이 3~6분
 ```
@@ -73,10 +75,11 @@ python3 scripts/cafe.py run $D/plan.json           # ④ 백그라운드로. 블
    카페 앱 공지·분양 홍보 글(`[가게이름]`)은 뺀다.
 2. **본문·댓글 읽기** — `https://m.cafe.naver.com/ca-fe/web/cafes/<clubid>/articles/<id>` 를 열어 '작성일'부터 '댓글을 남겨' 앞까지 텍스트만 읽는다. '○촌 등급 이상만 볼 수 있는 게시판'이면 그 카페는 건너뛴다.
 3. **블로그 글** — `content/<YYYY-MM-DD>-cafe/blog-<주제>.txt`. 질문자가 헷갈린 지점부터 답하고, 확인 방법·주의점을 짧은 줄로. 끝은 아래 '블로그 끝 브리디 안내'(2026-11-13 사용자 결정)로 쓴다. **URL 은 맨 마지막 줄**(뒤에 글을 더 치면 링크 미리보기 때문에 에디터 커서가 튀어 순서가 섞인다).
+   **검색형 기준(2026-11-26, 원본 `bredy-marketing/docs/naver-blog-growth.md`)**: 쓰기 전에 `python3 -I blog/naver-ref.py "<목표 검색어>"` 로 상위 5개를 본다. 제목은 사람들이 칠 검색어(종 이름 + 증상·상황·가격)로 시작, 본문 1,500~2,500자(원인 → 확인 → 해결 → 자주 하는 실수), 질문형 소제목 4~6개, 주제 사진 3장 이상·다른 글에 쓴 사진 재사용 금지. 늘리려고 같은 말 반복하지 않는다. 검색 상위 글 중앙값이 1,867자·사진 7장인데 우리 글은 500자·사진 1장이었다.
    ```bash
-   python3 ~/.claude/skills/bredy-cafe-activity/scripts/naver-photos.py <본문.txt> "<제목>" "<카테고리>" "<태그,태그>" assets/photos/<CC0 사진>
+   python3 ~/.claude/skills/bredy-cafe-activity/scripts/naver-photos.py <본문.txt> "<제목>" "<카테고리>" "<태그,태그>" <bredy-photos.py 가 준 사진들>
    ```
-   카테고리: 물고기 → `물고기 키우기`, 파충류·곤충 → `브리디 소식`. 사진은 `assets/photos/SOURCES.md` 의 CC0 만. 출력된 글 주소를 확인한다.
+   카테고리: 물고기 → `물고기 키우기`, 파충류·곤충 → `브리디 소식`. 사진은 **브리디 회원 사진**(2026-11-26 사용자 "항상 사진이 똑같다, 브리디에 올라온 사진 써라 우리 소유야")을 `python3 -I blog/bredy-photos.py "<종 이름,줄임말>" 4` 로 받는다 — 이미 쓴 사진·비슷한 사진은 알아서 빠진다. 받은 사진은 Read 로 열어 연락처·주소·얼굴·곤충 확대가 보이면 그 장만 지운다. 모자라면 넓은 말(어항·사육장·도마뱀)로 한 번 더. `assets/photos` CC0 사진은 `--dry` 가 막는다. 출력된 글 주소를 확인한다.
    - 블로그 글에는 쿠팡 파트너스 링크 하나 + 대가성 문구를 넣는다(아래 '블로그 쿠팡 파트너스 링크').
 4. **카페 댓글** — `content/<날짜>-cafe/c-<주제>.txt`(마지막 줄 = 블로그 링크).
    ```bash
@@ -97,7 +100,7 @@ python3 scripts/cafe.py run $D/plan.json           # ④ 백그라운드로. 블
 
 ## 블로그 끝 브리디 안내 (2026-11-13 사용자 결정 — "쿠팡만 강조돼 있다")
 쿠팡 링크는 작게, 브리디가 더 눈에 띄게 한다. 모든 블로그 글에:
-- **사진**: 주제 CC0 사진 + 브리디 앱 화면 사진 1장을 함께 올린다(`naver-photos.py` 사진 인자에 `assets/app-shots/03-home-feed.jpg`(질문하면 답해요) 추가. 분양·경매 글이면 `02-post-dog.jpg`·`01-collage.jpg` 중 맞는 것). 앱 사진은 `bredy_app/store-assets/screenshots/ios/` 사본이다.
+- **사진**: 주제 브리디 회원 사진(위 3번) + 브리디 화면 사진 1장을 함께 올린다. 화면 사진은 `assets/app-shots/blog/` 의 20여 장을 글마다 차례로 돌려 쓴다(2026-11-26 사용자 "앱 화면 20장 정도 찍어서 돌아가며 써" — `cafe.py` 가 알아서 고르고, 손으로 올릴 때는 `content/blog-app-shot.txt` 다음 장). 화면을 새로 찍으려면 `node blog/app-shots.mjs`(로그아웃 임시 창, 휴대폰 크기).
 - **끝 문구**(쿠팡·대가성 문구 뒤, 이 순서로, 맨 끝 URL = 다운로드):
   ```
   브리디에 더 많은 정보가 있어요
