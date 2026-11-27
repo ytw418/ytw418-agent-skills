@@ -44,3 +44,8 @@ Impeccable 엔진: 첫 실행 때 GitHub 릴리스에서 바이너리를 받아 
 
 바꾼 것: SKILL.md 맨 위 브리디 적용 메모(네이버 검색도 같이 봄·유료 도구 안 씀·`./brand/` 안 만듦·용어표·캐시 규칙), 묶음 공용 `start-here/references` 의 taste-loop·output-format(+ content-brief 스키마)을 각 스킬 `shared/` 로 복사하고 경로를 고침.
 안 넣은 것: ai-search(ai-seo 와 겹침), site-audit(seo-audit 와 겹침), start-here(`./brand/` 파일을 만드는 진입 스킬), 지역 사업용(local-seo-plan·service-area-pages·google-business-profile·find-local-clients·pitch-the-fix·first-screen-check·speed-to-lead·reviews), 광고(paid-ads·meta-ads·google-ads-tracking·ads-incrementality-check — 광고 집행 계획 없음), 문구·SNS(direct-response-copy·landing-page·social-content·content-atomizer·brand-voice — copywriting·bredy-sns-growth 와 겹침), 나머지 마케팅 묶음(email-sequences·newsletter·lead-magnet·creative 등).
+
+## 클라우드 스레드에 브리디 스킬 연결 (11-27)
+
+`skills/` 에만 있고 `.claude/skills/` 링크가 없던 스킬은 맥(`sync-skills.sh` overlay)에서만 불렸다. 클라우드 스레드에서도 쓰도록 20개를 링크했다: hjjm-prd, bredy-feature-flow, bredy-posthog-event, bredy-content, bredy-viral, bredy-sns-promo, bredy-anime-reel, bredy-overseas-research, bredy-cafe-research, bredy-region-check, bredy-repo-cleanup, bredy-kakao-openchat-room, bredy-app-deploy, breeder-web-deploy, adsense-bot-check, content-strategy, community-marketing, vercel-react-best-practices, vercel-react-native-skills, handoff.
+링크 안 한 것: 회사(bhsn) 전용, 맥 로컬 전용(paseo-doctor·session-search·token-*·worktree-*·user-chrome-control·ios-safari-touch-check·bredy-smoke-test), 로그인 브라우저가 필요하고 맥 사본이 더 새것인 bredy-cafe-activity·bredy-instagram-outreach, 운영 DB 를 고치는 bredy-prod-db-write(DB 안전 규칙), breeder_web `crew-activity` 와 겹치는 bredy-crew-activity, vercel-cost-diet(계정 스킬과 이름 충돌).
