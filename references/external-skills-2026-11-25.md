@@ -35,3 +35,27 @@ Impeccable 엔진: 첫 실행 때 GitHub 릴리스에서 바이너리를 받아 
 
 바꾼 것: 각 SKILL.md 맨 위 브리디 적용 메모(용어표·유료 파트너 도구 안 씀·캐시 규칙 / 로컬 next dev 모바일 캡처), marketingskills evals 제외.
 안 넣은 것: doc-coauthoring(사용자에게 맥락을 한참 묻는 대화형 흐름이라 '사용자 손 최소화' 규칙과 맞지 않고, PRD 에도 발동해 hjjm-prd 와 겹침 → 릴리스 노트·FAQ·약관·문의는 bredy-cs-docs 로), marketingskills 의 pricing·referrals·launch 등(PM 스킬·growth-loops·shipping-and-launch 와 겹침), community-marketing·content-strategy(이미 있음).
+
+## SEO·AI 검색 (11-27 추가)
+
+| 스킬 | 출처 | 커밋 | 라이선스 |
+|---|---|---|---|
+| keyword-research, seo-content, programmatic-seo | boringmarketer/boring-marketing-skills | bd5aaed | MIT (각 폴더 LICENSE) |
+
+바꾼 것: SKILL.md 맨 위 브리디 적용 메모(네이버 검색도 같이 봄·유료 도구 안 씀·`./brand/` 안 만듦·용어표·캐시 규칙), 묶음 공용 `start-here/references` 의 taste-loop·output-format(+ content-brief 스키마)을 각 스킬 `shared/` 로 복사하고 경로를 고침.
+안 넣은 것: ai-search(ai-seo 와 겹침), site-audit(seo-audit 와 겹침), start-here(`./brand/` 파일을 만드는 진입 스킬), 지역 사업용(local-seo-plan·service-area-pages·google-business-profile·find-local-clients·pitch-the-fix·first-screen-check·speed-to-lead·reviews), 광고(paid-ads·meta-ads·google-ads-tracking·ads-incrementality-check — 광고 집행 계획 없음), 문구·SNS(direct-response-copy·landing-page·social-content·content-atomizer·brand-voice — copywriting·bredy-sns-growth 와 겹침), 나머지 마케팅 묶음(email-sequences·newsletter·lead-magnet·creative 등).
+
+## 클라우드 스레드에 브리디 스킬 연결 (11-27)
+
+`skills/` 에만 있고 `.claude/skills/` 링크가 없던 스킬은 맥(`sync-skills.sh` overlay)에서만 불렸다. 클라우드 스레드에서도 쓰도록 20개를 링크했다: hjjm-prd, bredy-feature-flow, bredy-posthog-event, bredy-content, bredy-viral, bredy-sns-promo, bredy-anime-reel, bredy-overseas-research, bredy-cafe-research, bredy-region-check, bredy-repo-cleanup, bredy-kakao-openchat-room, bredy-app-deploy, breeder-web-deploy, adsense-bot-check, content-strategy, community-marketing, vercel-react-best-practices, vercel-react-native-skills, handoff.
+링크 안 한 것: 회사(bhsn) 전용, 맥 로컬 전용(paseo-doctor·session-search·token-*·worktree-*·user-chrome-control·ios-safari-touch-check·bredy-smoke-test), 로그인 브라우저가 필요하고 맥 사본이 더 새것인 bredy-cafe-activity·bredy-instagram-outreach, 운영 DB 를 고치는 bredy-prod-db-write(DB 안전 규칙), breeder_web `crew-activity` 와 겹치는 bredy-crew-activity, vercel-cost-diet(계정 스킬과 이름 충돌).
+
+## 마케팅 스킬 추가 9개 (2026-11-28)
+
+boring-marketing-skills 나머지 29개를 검토해, 기존 스킬과 겹치지 않고 브리디에 쓸 데가 있는 9개만 넣었다.
+
+- 넣음: audience-research(고객 말 모으기), brand-voice(말투 정리), content-atomizer(한 글을 SNS 여러 개로), landing-page(랜딩 페이지), lead-magnet(무료 자료로 가입 유도), long-form-article(긴 글), performance-review(숫자로 다음 할 일), positioning-angles(차별점), site-audit(사이트 기술 점검 크롤러).
+- 뺌(겹침): ai-search(ai-seo), competitive-intel(competitor-analysis), direct-response-copy(copywriting·cro), social-content(bredy-sns-growth·x-post-writer), start-here(./brand 를 안 씀).
+- 뺌(미국 동네 업체용·유료 API·브리디에 안 맞음): ads-incrementality-check, creative, email-sequences, find-local-clients, first-screen-check, google-ads-tracking, google-business-profile, local-seo-plan, meta-ads, newsletter, paid-ads, pitch-the-fix, reviews, service-area-pages, speed-to-lead.
+- 이유: 스킬은 설명 한 줄로 골라지므로 비슷한 스킬이 둘 있으면 엉뚱한 쪽이 골라진다. 본문 메모("기존 스킬이 먼저")는 스킬을 연 뒤에야 읽힌다.
+- start-here 의 공용 파일(taste-loop·output-format·brand-memory·schemas)은 각 스킬 `shared/` 로 복사하고 경로를 바꿨다. site-audit 크롤러의 PageSpeed·Firecrawl 키는 없어도 돈다(키 없이 무료 경로).

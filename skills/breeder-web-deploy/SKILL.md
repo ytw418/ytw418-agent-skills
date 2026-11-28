@@ -13,6 +13,14 @@ description: 브리디 웹(breeder_web, Next.js)을 운영에 배포한다. dev 
 - `dev` 브랜치는 절대 지우지 않는다(`--delete-branch` 금지).
 - 로컬 작업 트리는 건드리지 않는다. 모든 조회는 `origin/*` 기준, PR·머지는 `gh`로 한다.
 
+## 0. 한 번 지시면 끝까지 (2026-11-20 사용자 "느슨하게 하자")
+
+- "운영배포해" 한 번이면 웹 머지·운영 반영·앱 코드푸시까지 다시 묻지 않고 끝낸다. 백그라운드 작업 알림은 배포 가드 훅이 허락을 지우지 않는다.
+- 머지 직전에 `git log origin/main..origin/dev` 를 다시 보고, PR 을 만든 뒤 새로 들어온 PR 이 있으면 PR 본문에 추가하고 그대로 진행한다(보고에 적는다).
+- 추가만 하는 마이그레이션(`check-migration-safety` 통과)은 `npm run db:backup -- prod` 뒤 그대로 진행한다. 파괴적 마이그레이션(`bredy:allow-destructive`)만 멈추고 묻는다.
+- GitHub Actions 가 결제 문제로 안 돌면(`recent account payments have failed`) 막지 않고 보고에만 적는다.
+- Vercel 운영 빌드가 Ignored Build Step 으로 취소되면 맥 로컬 운영 빌드로 낸다(메모 `local-prod-build-clean-main`).
+
 ## 1. 배포할 변경 확인
 
 ```bash

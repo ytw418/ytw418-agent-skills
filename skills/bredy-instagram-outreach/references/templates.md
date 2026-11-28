@@ -110,7 +110,7 @@ https://bredy.app
 ## 개발자 계정 1차 (2026-10-20 — 본인 계정 yy_jun_0, 만든 사람 목소리)
 
 사용자 본인 계정(yy_jun_0 · lcaros_rn)으로 보낼 때. 브리디를 만든 사람이라고 밝히고, 일반 이용자인 척 추천하지 않는다.
-`IG_ACCOUNT=yy_jun_0 IG_TEMPLATE='## 개발자 계정 1차' node ig.mjs send N` — 후보·하루 한도는 bredy_breeder 와 같이 센다.
+`IG_ACCOUNT=yy_jun_0 IG_TEMPLATE='## 개발자 계정 1차' node ig.mjs send N` — 후보·하루 한도는 bredy_official 와 같이 센다.
 
 ```
 안녕하세요 {닉네임}님!
@@ -172,7 +172,14 @@ https://bredy.app
 https://bredy.app
 ```
 
-## VIP 라운지 파충류 (2026-11-13 사용자 "파충류 곤충 물고기 10명씩 dm" — 링크·이모지 없음)
+## VIP 라운지 — 공통 규칙 (2026-11-16 사용자 "앞으로 줄까요? 물어보지말고 그냥 처음부터 줘!")
+
+- 첫 메시지·첫 댓글부터 그 사람 전용 초대 링크를 넣는다. "초대장 드릴까요?"라고 묻지 않는다.
+- 링크는 한 사람에 한 장(`scripts/invite.mjs <라운지>`). DM 은 ig.mjs 가 `{초대링크}` 자리에 새로 만든 링크를 넣고 targets.csv 메모에 `VIP 초대장 <코드>` 를 남긴다 — `IG_LOUNGE=reptile|insect|aquatic|…` 를 꼭 붙인다.
+- 라운지는 그 사람 분야로: 크레·파충류·양서류 reptile, 곤충 insect, 등각류·절지류 arthropod, 물고기·수초 aquatic, 소동물·앵무 smallpet, 강아지 dog, 고양이 cat.
+- 하루 수량·간격·같은 사람 한 번·긴급 구조/안락사 임박 글 제외 규칙은 그대로다.
+
+## VIP 라운지 파충류 (2026-11-16 링크 바로 주기 — IG_LOUNGE=reptile)
 
 ```
 안녕하세요 {닉네임}님!
@@ -182,10 +189,12 @@ https://bredy.app
 초대받아 들어오는 VIP 라운지를 열었어요
 라운지에서만 올라오는 개체랑 사육 얘기가 오가는 곳이에요
 
-초대장 하나 보내드려도 될까요?
+한 분 몫으로 초대장을 만들어 뒀어요
+이 링크는 받으신 분만 쓰실 수 있어요
+{초대링크}
 ```
 
-## VIP 라운지 곤충 (2026-11-13)
+## VIP 라운지 곤충 (2026-11-16 링크 바로 주기 — IG_LOUNGE=insect)
 
 ```
 안녕하세요 {닉네임}님!
@@ -194,10 +203,12 @@ https://bredy.app
 곤충 집사님들끼리만 쓰는 VIP 라운지를 운영하고 있어요
 초대받은 분들만 들어와서 사육 얘기 진하게 나누는 방이에요
 
-초대장 하나 보내드려도 될까요?
+한 분 몫으로 초대장을 만들어 뒀어요
+이 링크는 받으신 분만 쓰실 수 있어요
+{초대링크}
 ```
 
-## VIP 라운지 물생활 (2026-11-13)
+## VIP 라운지 물생활 (2026-11-16 링크 바로 주기 — IG_LOUNGE=aquatic)
 
 ```
 안녕하세요 {닉네임}님!
@@ -206,7 +217,9 @@ https://bredy.app
 물생활 집사님들만 초대받아 들어오는 VIP 라운지를 열었어요
 아무나 못 들어오는 방이라 어항 꾸미시는 분들 모시고 싶어서 연락드려요
 
-초대장 하나 보내드려도 될까요?
+한 분 몫으로 초대장을 만들어 뒀어요
+이 링크는 받으신 분만 쓰실 수 있어요
+{초대링크}
 ```
 
 ## 답장 — 말투
@@ -268,3 +281,43 @@ https://bredy.app
 - 화가 났거나 스팸 신고를 언급
 - "봇이에요?/AI예요?" → 솔직하게 "1인 개발자라 AI 도구 도움을 받아 메시지를 보내고 있어요. 궁금한 건 꼭 확인해서 답드릴게요!" 후 사람에게 넘긴다
 - 사용자가 손으로 대화 중인 사람
+
+## 계정별 DM — 공통 규칙 (2026-11-24 사용자 "dogs·lcaros·memorial 계정도 인스타 DM 영업 진행")
+- 계정마다 자기 크롬·자기 후보 폴더로 보낸다: dogs `IG_PORT=9231 IG_ACCOUNT=bredy_dogs OUTREACH_DIR=~/Documents/bredy-outreach-dogs`, lcaros `IG_PORT=9223 IG_ACCOUNT=lcaros_rn OUTREACH_DIR=~/Documents/bredy-outreach-lcaros`, memorial `IG_PORT=9234 IG_ACCOUNT=bredy_memorial OUTREACH_DIR=~/Documents/bredy-outreach-memorial`.
+- 지어낸 사연·후기 금지. 사실만: 브리디는 전국 보호소 공고를 매일 모으고, 무지개 마을 추모관은 무료다.
+- memorial 은 최근 무지개다리 글을 공개로 올린 사람에게만, 글을 올린 지 사흘 넘은 사람에게만 보낸다. 판매·홍보 계정, 아이가 아픈 중인 글에는 보내지 않는다.
+
+## dogs 1차 (IG_TEMPLATE='## dogs 1차')
+
+```
+안녕하세요 {닉네임}님! 브리디 강아지 계정이에요 🐶
+피드에 강아지 사진 보다가 반가워서 인사드려요
+
+저희는 전국 보호소 공고를 매일 모아서 한곳에 보여 드리고 있어요
+입양·임보 생각 있으실 때나 주변에 알려 주실 때 써 주시면 큰 힘이 돼요
+https://bredy.app/adoption?tab=shelter&utm_source=instagram&utm_campaign=dm_dogs
+```
+
+## lcaros 1차 (IG_TEMPLATE='## lcaros 1차')
+
+```
+안녕하세요 {닉네임}님!
+반려동물 앱 브리디를 혼자 만들고 있는 사람이에요
+
+피드 보다가 아이가 너무 예뻐서 연락드려요 ☺️
+브리디에 사진 올리시면 동네 이웃들이 보고 인기투표에도 참여할 수 있어요
+한번 구경 와 주시면 정말 힘이 될 것 같아요
+https://bredy.app/download?utm_source=instagram&utm_campaign=dm_lcaros
+```
+
+## memorial 1차 (IG_TEMPLATE='## memorial 1차')
+
+```
+{닉네임}님, 갑자기 연락드려 죄송해요
+올려 주신 글 보고 마음이 오래 남아서요
+
+떠난 아이 사진과 이름을 남겨 두고 언제든 보러 갈 수 있는
+무료 온라인 추모관을 운영하고 있어요
+혹시 마음이 닿으시면 아이 자리를 하나 만들어 주세요 🌈
+https://bredy.app/village/memorial?utm_source=instagram&utm_campaign=dm_memorial
+```

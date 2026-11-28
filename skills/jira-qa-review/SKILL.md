@@ -84,7 +84,7 @@ Jira MCP 서식 함정: `{id}`·한글 굵게·`[버튼]`·코드 옆 `+` 는 �
    - 이미 박힌 티켓에 다시 돌려도 안전하다(크기만 다시 넣는다). 본문을 MCP로 다시 저장했으면 반드시 다시 돌린다
 4. 확인: `node scripts/jira-shot.mjs <티켓> /tmp/<번호>/jira.png '<본문 글귀>'` 로 실제 화면을 찍어 보고, 출력된 본문 이미지 크기가 740x… 처럼 본문 폭이면 통과(156x125 는 첨부 패널 썸네일이라 무시)
 
-Playwright 는 `~/Desktop/bhsn/allibee-frontend/node_modules/playwright` 를 쓴다. 다른 곳이면 `PW_MJS=<경로>/playwright/index.mjs` 로 넘긴다. Jira 로그인이 풀려 있으면 사용자에게 알리고 로그인 탭을 열어 둔다.
+Playwright 는 `~/Desktop/bhsn/allibee-frontend/node_modules/playwright` 를 쓴다. 다른 곳이면 `PW_MJS=<경로>/playwright/index.mjs` 로 넘긴다. Jira 로그인이 풀려 있으면 사용자 크롬에서 시도한다: `user-chrome-control` 의 `pc --tab <Jira 탭> js -` 로 `jira-embed.mjs` 의 evaluate 함수 본문(10~49줄)을 async 함수로 감싸 실행하고 결과는 `sessionStorage` 에 넣어 받는다(`window` 값은 다음 호출에서 안 보인다). 사용자 크롬도 풀려 있을 때만 알리고 로그인 탭을 열어 둔다.
 
 ## 5. 정리·보고
 

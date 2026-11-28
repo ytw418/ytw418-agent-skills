@@ -5,7 +5,7 @@
 //
 // 준비(한 번): cd $OUTREACH_DIR/runner && npm i playwright-core   (Google Chrome 이 설치돼 있어야 한다)
 //
-//   node ig.mjs login                크롬 창을 띄운다 → 사용자가 bredy_breeder(또는 IG_ACCOUNT) 로 직접 로그인(비밀번호는 스크립트가 보지 않음)
+//   node ig.mjs login                크롬 창을 띄운다 → 사용자가 bredy_official(또는 IG_ACCOUNT) 로 직접 로그인(비밀번호는 스크립트가 보지 않음)
 //   node ig.mjs check                로그인 상태 확인
 //   node ig.mjs send [n]             후보(targets.csv '후보')에게 첫 메시지 — 실제 보냄 n명(기본 10)이 될 때까지
 //   node ig.mjs inbox [--peek]      읽지 않은 대화를 열어 handle·최근 메시지를 JSON 으로(--peek: 열지 않고 목록 줄만 — '읽음'이 안 됨)
@@ -21,14 +21,15 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { createRequire } from "node:module";
-import { execFileSync } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
+import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 
 const DIR = process.env.OUTREACH_DIR || path.join(os.homedir(), "Documents", "bredy-outreach");
 // 두 번째 계정(10-20 사용자: 본인 계정 yy_jun_0 도 마케팅에)은 IG_ACCOUNT 로 고른다. 자동화 크롬 하나에서 '계정 전환'으로 바꾸고 끝나면 되돌린다.
 // 다른 계정으로 잘못 보내는 일이 없게 한다. 후보·보낸 수(targets.csv)는 두 계정이 같이 써서 한 사람에게 두 번 가지 않고 하루 한도도 합쳐 센다.
-const ACCOUNT = process.env.IG_ACCOUNT || "bredy_breeder";
-const PROFILE = path.join(DIR, ACCOUNT === "bredy_breeder" ? "chrome-profile" : `chrome-profile-${ACCOUNT}`);
+const ACCOUNT = process.env.IG_ACCOUNT || "bredy_official";
+const PROFILE = path.join(DIR, ACCOUNT === "bredy_official" ? "chrome-profile" : `chrome-profile-${ACCOUNT}`);
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const OUT = path.join(HERE, "outreach.mjs");
 const TEMPLATES = path.join(HERE, "..", "references", "templates.md");
@@ -56,7 +57,7 @@ const log = (...a) => console.error(...a);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const outreach = (...a) => {
   // 보낸 계정을 메모에 남긴다(답장은 그 계정 메시지함에서 읽어야 한다)
-  if (a[0] === "mark" && ACCOUNT !== "bredy_breeder") a[3] = `[${ACCOUNT}] ${a[3] || ""}`.trim();
+  if (a[0] === "mark" && ACCOUNT !== "bredy_official") a[3] = `[${ACCOUNT}] ${a[3] || ""}`.trim();
   return execFileSync("node", [OUT, ...a], { encoding: "utf8", env: { ...process.env, OUTREACH_DAILY_LIMIT: "100000" } });
 };
 
@@ -98,6 +99,20 @@ function firstMessage(nick, kind, left) {
   return text.split("\n");
 }
 
+// 문구에 {초대링크}가 있으면 받는 사람 전용 초대장을 새로 만든다(2026-11-16 사용자 "줄까요? 물어보지 말고 그냥 처음부터 줘").
+// IG_LOUNGE(reptile|insect|aquatic|smallpet|dog|cat|arthropod) 라운지로 만든다. 못 만들면 null.
+// 비동기여야 한다: connectOverCDP 로 붙은 Playwright 가 새 탭을 놓아주려면 이벤트 루프가 돌아야 해서, 동기 호출이면 invite.mjs 가 60초 막혔다가 실패한다(11-16~11-20).
+async function newInviteCode() {
+  const lounge = process.env.IG_LOUNGE;
+  if (!lounge) throw new Error("{초대링크} 문구는 IG_LOUNGE 가 필요하다");
+  try {
+    const { stdout: out } = await promisify(execFile)("node", [path.join(path.dirname(fileURLToPath(import.meta.url)), "invite.mjs"), lounge], { encoding: "utf8", timeout: 60000 });
+    return out.match(/"new":\["invite\/([A-Za-z0-9_-]+)"/)?.[1] ?? null;
+  } catch {
+    return null;
+  }
+}
+
 async function slotsLeft() {
   const res = await fetch("https://bredy.app/content/breeder-program");
   const m = (await res.text()).match(/(\d+)\/100/);
@@ -110,16 +125,30 @@ async function slotsLeft() {
 // ctx.close() = 내 탭 닫기 + 잠금 풀기 + 연결만 끊기(크롬은 그대로).
 const BCHROME = "/Users/yoonseongjun/Desktop/pro/bredy-marketing/scripts/bchrome.mjs";
 // 계정별 인스타 사용자 번호(공개 값). 활성 계정은 쿠키 ds_user_id 로 판별한다(화면 글자는 계정마다 배치가 달라 믿지 않는다).
-const IG_IDS = { bredy_breeder: "67629482183", yy_jun_0: "4581041541" };
-const DEFAULT_ACCOUNT = "bredy_breeder";
+const IG_IDS = { bredy_official: "67629482183", yy_jun_0: "4581041541", bredy_memorial: "71392370786", lcaros_rn: "45157540962", bredy_dogs: "73151515230" };
+// 2026-11-24 사용자 "dogs·lcaros·memorial 계정도 인스타 DM 영업 진행": 계정마다 자기 크롬 프로필이 있어 IG_PORT 로 그 크롬에 붙는다(계정 전환 없음).
+// 9222 가 아니면 bredy-chrome 을 켜지 않고, 잠금도 포트별로 잡는다. 번호를 모르는 계정은 로그인된 계정의 사용자 이름이 IG_ACCOUNT 와 같아야 보낸다.
+const IG_PORT = Number(process.env.IG_PORT || 9222);
+const DEFAULT_ACCOUNT = "bredy_official";
 
 async function activeId(context) {
-  return (await context.cookies("https://www.instagram.com")).find((c) => c.name === "ds_user_id")?.value;
+  const cs = await context.cookies("https://www.instagram.com");
+  // ds_user_id 가 빠진 세션도 있다(2026-11-24 dogs). sessionid 앞부분이 사용자 번호다.
+  return cs.find((c) => c.name === "ds_user_id")?.value || decodeURIComponent(cs.find((c) => c.name === "sessionid")?.value || "").split(":")[0] || undefined;
 }
 
 // 자동화 크롬 하나에 저장된 계정을 '계정 전환' 메뉴에서 고른다(비밀번호 입력 없음, 10-20 사용자: "셀렉터에서 선택만 하면 된다").
 // 판별·전환은 따로 연 임시 탭에서 하고 닫는다(작업 탭 화면 크기를 건드리지 않게).
 async function ensureAccount(context, account) {
+  if (IG_PORT !== 9222) {  // 계정 전용 크롬: 전환하지 않고 로그인된 계정이 맞는지만 본다
+    const id = await activeId(context);
+    if (!id) throw new Error(`포트 ${IG_PORT} 인스타 로그인 안 됨`);
+    if (IG_IDS[account]) { if (id !== IG_IDS[account]) throw new Error(`포트 ${IG_PORT} 계정이 ${account} 가 아님`); return; }
+    const r = await context.request.get(`https://www.instagram.com/api/v1/users/${id}/info/`, { headers: { "x-ig-app-id": "936619743392459" } }).catch(() => null);
+    const name = r && r.ok() ? (await r.json()).user?.username : null;
+    if (name !== account) throw new Error(`포트 ${IG_PORT} 계정 확인 실패(${name || "?"} ≠ ${account})`);
+    return;
+  }
   const want = IG_IDS[account];
   if (!want) throw new Error(`IG_IDS 에 ${account} 번호가 없다 — 먼저 등록`);
   if ((await activeId(context)) === want) return;
@@ -144,9 +173,9 @@ async function ensureAccount(context, account) {
 
 async function openBrowser({ keepTab = false } = {}) {
   const { lockSite } = await import(BCHROME);
-  const release = await lockSite("instagram");
-  execFileSync(path.join(os.homedir(), ".local/bin/bredy-chrome"));
-  const browser = await chromium.connectOverCDP("http://127.0.0.1:9222");
+  const release = await lockSite(IG_PORT === 9222 ? "instagram" : `instagram-${IG_PORT}`);
+  if (IG_PORT === 9222) execFileSync(path.join(os.homedir(), ".local/bin/bredy-chrome"));
+  const browser = await chromium.connectOverCDP(`http://127.0.0.1:${IG_PORT}`);
   const context = browser.contexts()[0];
   try {
     await ensureAccount(context, ACCOUNT);
@@ -160,8 +189,8 @@ async function openBrowser({ keepTab = false } = {}) {
     cookies: (u) => context.cookies(u),
     close: async () => {
       if (!keepTab) await page.close().catch(() => {});
-      // 두 번째 계정으로 일했으면 기본 계정으로 되돌려 둔다(다른 일정·세션이 bredy_breeder 로 알고 붙는다)
-      if (ACCOUNT !== DEFAULT_ACCOUNT) await ensureAccount(context, DEFAULT_ACCOUNT).catch((e) => log("되돌리기 실패: " + e.message));
+      // 두 번째 계정으로 일했으면 기본 계정으로 되돌려 둔다(다른 일정·세션이 bredy_official 로 알고 붙는다)
+      if (IG_PORT === 9222 && ACCOUNT !== DEFAULT_ACCOUNT) await ensureAccount(context, DEFAULT_ACCOUNT).catch((e) => log("되돌리기 실패: " + e.message));
       release();
       await browser.close().catch(() => {});
     },
@@ -327,7 +356,13 @@ async function cmdSend(want) {
         result.existing.push(t.handle);
         continue;
       }
-      const lines = firstMessage(t.nick, t.kind, left);
+      let lines = firstMessage(t.nick, t.kind, left);
+      let invite = null;
+      if (lines.some((l) => l.includes("{초대링크}"))) {
+        invite = DRY ? "DRYRUN00" : await newInviteCode();
+        if (!invite) { result.stopped = "초대장을 못 만들었다(bredy.app 운영자 로그인 확인)"; break; }
+        lines = lines.map((l) => l.replaceAll("{초대링크}", `https://bredy.app/invite/${invite}`));
+      }
       if (!(await typeExact(page, composer, lines)) && !(await typeExact(page, composer, lines))) {
         if (!DRY) outreach("mark", t.handle, "확인필요", "입력 불일치(크롬)");
         result.failed.push(t.handle);
@@ -356,7 +391,7 @@ async function cmdSend(want) {
         result.blocked.push(t.handle);
         continue;
       }
-      const memo = `${process.env.IG_TEMPLATE || "기본 문구"} 크롬`;
+      const memo = `${process.env.IG_TEMPLATE || "기본 문구"} 크롬${invite ? `, VIP 초대장 ${invite}` : ""}`;
       if (second) {
         // 10-14 사용자: "첨부터 광고처럼 보내지 말고 두 번에 나눠서" → 1차(인사) 1~2분 뒤 2차(소개·링크)
         await sleep(PAIR_MS);
@@ -510,7 +545,13 @@ const main = {
     const { ctx, page } = await openBrowser();
     try { console.log((await loggedIn(page)) ? "로그인됨" : "로그인 안 됨"); } finally { await ctx.close(); }
   },
-  send: () => cmdSend(Number(args[0] || 7)),
+  // 2026-11-24 bredy_official 이 '금지된 커머스 활동' 으로 DM 제한(12-24까지) → 모든 계정 첫 DM 발송을 끈다.
+  // 다시 켜는 건 사용자가 직접 정한 뒤 ~/.config/bredy-chrome/dm-off 파일을 지울 때만.
+  send: () => {
+    const off = `${process.env.HOME}/.config/bredy-chrome/dm-off`;
+    if (fs.existsSync(off)) { console.log(`DM 발송 꺼짐(${off}): ${fs.readFileSync(off, "utf8").trim()}`); process.exit(4); }
+    return cmdSend(Number(args[0] || 7));
+  },
   inbox: cmdInbox,
   read: () => cmdRead(args[0]),
   reply: () => cmdReply(args[0], args.slice(1).join(" ")),

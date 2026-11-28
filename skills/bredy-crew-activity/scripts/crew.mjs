@@ -85,7 +85,9 @@ const DEBATE_QUESTION_MAX = 40;
 const DEBATE_OPTION_MAX = 12;
 const DEBATE_DESCRIPTION_MAX = 1000;
 const DEBATE_DURATIONS_HOURS = [72, 168, 24];
-const DEBATE_DAILY_LIMIT = 3;
+/** 2026-11-17 사용자 "크루들 글쓰는건 계정당 하루 한개로, 댓글은 예외": 글·토론 합쳐 한국 날짜 하루 1개. */
+const CREW_POSTS_PER_DAY = 3; // 2026-11-25 사용자 "한도 늘려" — 카페 Q&A 글이 1개 한도에 막혀 1→3
+const kstDay = (iso) => new Date(new Date(iso).getTime() + 9 * 3600e3).toISOString().slice(0, 10);
 /** 크루는 거래하지 않으므로 가게·판매자처럼 보이는 닉네임을 쓰지 않는다. */
 const SELLER_LIKE_NICK = /샵|shop|스토어|store|분양|판매|매장|마켓/i;
 
@@ -329,9 +331,11 @@ async function snapshot(flags) {
   const posts = [];
 
   for (let page = 1; page <= pages; page += 1) {
-    const data = await api("GET", `/api/posts?page=${page}&sort=latest`);
+    const data = await api("GET", `/api/posts?page=${page}&sort=latest&includeCrew=1`);
     for (const post of data.posts) {
-      const detail = await api("GET", `/api/posts/${post.id}`);
+      // 운영 정책으로 숨긴 글은 상세가 막혀 스냅샷 전체가 멈춘다 → 건너뛴다
+      const detail = await api("GET", `/api/posts/${post.id}`).catch(() => null);
+      if (!detail?.post) continue;
       const d = detail.post;
       posts.push({
         id: d.id,
@@ -357,14 +361,43 @@ async function snapshot(flags) {
     if (page >= data.pages) break;
   }
 
+  // 2026-11-24 사용자 "분양글 경매글 보호소 강아지, 고양이 최신글들 위주로" 크루 댓글 → 최근 분양글·보호소·진행 중 경매도 읽는다
+  const listings = [];
+  const listingSources = [
+    ["product", "/api/products?page=1"],
+    ["product", "/api/products?page=2"],
+    ["product", "/api/products?source=shelter&page=1"],
+    ["auction", "/api/auctions?page=1"],
+  ];
+  const seen = new Set();
+  for (const [kind, url] of listingSources) {
+    const data = await api("GET", url).catch(() => ({}));
+    for (const it of data.products ?? data.auctions ?? []) {
+      if (seen.has(`${kind}:${it.id}`) || (kind === "auction" && it.status !== "진행중")) continue;
+      seen.add(`${kind}:${it.id}`);
+      const { comments = [] } = await api("GET", `/api/${kind}s/${it.id}/comments`).catch(() => ({}));
+      listings.push({
+        kind,
+        id: it.id,
+        createdAt: it.listedAt ?? it.createdAt,
+        category: it.category,
+        shelter: Boolean(it.externalSource),
+        title: it.name ?? it.title,
+        description: clip(it.description, 400),
+        author: { id: it.user?.id, name: it.user?.name, isCrew: crewIds.has(it.user?.id) },
+        comments: comments.map((c) => ({ id: c.id, author: { id: c.user?.id, name: c.user?.name, isCrew: crewIds.has(c.user?.id) }, comment: clip(c.comment, 200) })),
+      });
+    }
+  }
+
   const recentCrewTitles = readJsonl(HISTORY_FILE)
     .filter((h) => h.type === "post")
     .slice(-200)
     .map((h) => ({ crew: h.crew, title: h.title, at: h.at }));
 
-  writeJson(SNAPSHOT_FILE, { takenAt: new Date().toISOString(), posts, recentCrewTitles });
+  writeJson(SNAPSHOT_FILE, { takenAt: new Date().toISOString(), posts, listings, recentCrewTitles });
   const real = posts.filter((p) => !p.author.isCrew).length;
-  console.log(`게시글 ${posts.length}개(크루 아닌 글 ${real}개) → ${path.relative(ROOT, SNAPSHOT_FILE)}`);
+  console.log(`게시글 ${posts.length}개(크루 아닌 글 ${real}개) · 분양·경매 ${listings.length}개 → ${path.relative(ROOT, SNAPSHOT_FILE)}`);
 }
 
 /* ------------------------------------------------------------------ */
@@ -378,9 +411,12 @@ function validatePlan(plan, roster) {
   const postHistory = readJsonl(HISTORY_FILE).filter((h) => h.type === "post");
   const postAuthor = new Map(postHistory.map((h) => [h.id, h.crew]));
   const snapshotPosts = new Map((readJson(SNAPSHOT_FILE, { posts: [] }).posts ?? []).map((p) => [p.id, p]));
+  const snapshotListings = new Map((readJson(SNAPSHOT_FILE, {}).listings ?? []).map((l) => [`${l.kind}:${l.id}`, l]));
   const knownTitles = new Set(postHistory.map((h) => titleKey(h.title)));
   const snapshotTitles = new Set([...snapshotPosts.values()].map((p) => titleKey(p.title)));
-  const debatesByCrew = {};
+  const today = kstDay(new Date().toISOString());
+  const postsByCrew = {};
+  for (const h of postHistory) if (h.at && kstDay(h.at) === today) postsByCrew[h.crew] = (postsByCrew[h.crew] ?? 0) + 1;
   const counts = {};
   const errors = [];
 
@@ -417,6 +453,7 @@ function validatePlan(plan, roster) {
           if (!fs.existsSync(path.resolve(ROOT, p))) errors.push(`${at}: 사진 파일이 없습니다 ${p}`);
         }
         if ((action.imagePaths ?? []).length > 10) errors.push(`${at}: 사진은 10장까지`);
+        postsByCrew[action.crew] = (postsByCrew[action.crew] ?? 0) + 1;
         checkGroup();
         checkTitle();
         break;
@@ -433,7 +470,7 @@ function validatePlan(plan, roster) {
         else if (a.toLowerCase() === b.toLowerCase()) errors.push(`${at}: 두 선택지가 같습니다`);
         if (!DEBATE_DURATIONS_HOURS.includes(action.durationHours ?? 72)) errors.push(`${at}: 기간은 ${DEBATE_DURATIONS_HOURS.join("·")}시간 중 하나`);
         if (String(action.description ?? "").trim().length > DEBATE_DESCRIPTION_MAX) errors.push(`${at}: 설명 ${DEBATE_DESCRIPTION_MAX}자 넘음`);
-        debatesByCrew[action.crew] = (debatesByCrew[action.crew] ?? 0) + 1;
+        postsByCrew[action.crew] = (postsByCrew[action.crew] ?? 0) + 1;
         checkGroup();
         checkTitle();
         break;
@@ -450,6 +487,20 @@ function validatePlan(plan, roster) {
         else if (!own && targetGroup && targetGroup !== persona?.group) {
           errors.push(`${at}: 글 #${action.postId} 는 ${targetGroup} — ${action.crew} 는 ${persona?.group} 댓글 크루`);
         }
+        break;
+      }
+      case "listing-comment": {
+        // 분양글·경매 댓글: { type, crew, listing: "product"|"auction", id, comment } — 대댓글 없음
+        const len = String(action.comment ?? "").trim().length;
+        if (!["product", "auction"].includes(action.listing)) errors.push(`${at}: listing 은 product 또는 auction`);
+        if (!Number.isInteger(action.id)) errors.push(`${at}: id 가 없습니다`);
+        if (!len || len > COMMENT_MAX) errors.push(`${at}: 댓글 ${len}자(1~${COMMENT_MAX})`);
+        if (role !== "댓글") errors.push(`${at}: ${action.crew} 는 ${role} 크루 — 분양·경매 댓글은 댓글 크루만`);
+        const target = snapshotListings.get(`${action.listing}:${action.id}`);
+        if (!target) errors.push(`${at}: 스냅샷에 없는 ${action.listing} #${action.id}`);
+        else if (target.author.isCrew) errors.push(`${at}: 크루가 올린 글에는 달지 않는다`);
+        const targetGroup = groupOf(target?.category);
+        if (targetGroup && targetGroup !== persona?.group) errors.push(`${at}: ${action.listing} #${action.id} 는 ${targetGroup} — ${action.crew} 는 ${persona?.group} 댓글 크루`);
         break;
       }
       case "town": {
@@ -480,8 +531,9 @@ function validatePlan(plan, roster) {
   for (const [type, limit] of Object.entries(RUN_LIMITS)) {
     if ((counts[type] ?? 0) > limit) errors.push(`${type} ${counts[type]}개 — 한 번에 ${limit}개까지`);
   }
-  for (const [crew, n] of Object.entries(debatesByCrew)) {
-    if (n > DEBATE_DAILY_LIMIT) errors.push(`${crew} 토론 ${n}개 — 서버가 하루 ${DEBATE_DAILY_LIMIT}개까지 받는다`);
+  const planPosters = new Set((plan.actions ?? []).filter((x) => x.type === "post" || x.type === "debate").map((x) => x.crew));
+  for (const [crew, n] of Object.entries(postsByCrew)) {
+    if (planPosters.has(crew) && n > CREW_POSTS_PER_DAY) errors.push(`${crew} 오늘 글·토론 ${n}개(이미 올린 것 포함) — 크루는 하루 ${CREW_POSTS_PER_DAY}개까지, 댓글은 예외`);
   }
   return { errors, counts, members, crewIds };
 }
@@ -542,6 +594,12 @@ async function runAction(action, member) {
         body: { comment: action.comment.trim(), ...(action.parentId ? { parentId: action.parentId } : {}) },
       });
       return { id: answer.id, postId: action.postId };
+    }
+    case "listing-comment": {
+      const { comments = [] } = await api("GET", `/api/${action.listing}s/${action.id}/comments`, { token });
+      if (comments.some((c) => c.user?.id === member.userId)) return { skipped: "이 크루가 이미 댓글을 달았습니다" };
+      const { id } = await api("POST", `/api/${action.listing}s/${action.id}/comments`, { token, body: { comment: action.comment.trim() } });
+      return { id, [action.listing]: action.id };
     }
     case "town": {
       const { townMessage } = await api("POST", "/api/town/messages", {
@@ -628,10 +686,10 @@ function lintPlan(plan) {
   const comments = [];
 
   (plan.actions ?? []).forEach((action, index) => {
-    if (!["post", "debate", "comment", "town"].includes(action.type)) return;
+    if (!["post", "debate", "comment", "listing-comment", "town"].includes(action.type)) return;
     const at = `#${index} ${action.type} ${action.crew}`;
-    const short = action.type === "comment" || action.type === "town";
-    const text = String(action.type === "comment" ? action.comment ?? "" : action.type === "town" ? action.body ?? "" : action.description ?? "");
+    const short = action.type === "comment" || action.type === "listing-comment" || action.type === "town";
+    const text = String(action.type === "comment" || action.type === "listing-comment" ? action.comment ?? "" : action.type === "town" ? action.body ?? "" : action.description ?? "");
     const title = String(action.title ?? "");
     const voice = voiceOf.get(action.crew) ?? "default";
     const whole = `${title}\n${text}`;

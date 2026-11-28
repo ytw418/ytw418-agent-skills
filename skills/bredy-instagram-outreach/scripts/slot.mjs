@@ -4,7 +4,7 @@
 // 에이전트는 이 JSON 의 unread(답장)를 templates.md 표에 맞춰 답하거나 '사람에게 넘길 것'에 적고, 보고만 한다.
 //
 //   node slot.mjs [--n 10] [--probe-after 9] [--refill-below 60] [--dry] [--wait 570] [--new] [--status]
-//   환경: IG_ACCOUNT(기본 bredy_breeder) · OUTREACH_DAILY_LIMIT(하루 한도, 기본 outreach.mjs 의 30) · IG_FIELD · IG_TEMPLATE · IG_TEMPLATE2 — ig.mjs send 에 그대로 넘어간다.
+//   환경: IG_ACCOUNT(기본 bredy_official) · OUTREACH_DAILY_LIMIT(하루 한도, 기본 outreach.mjs 의 30) · IG_FIELD · IG_TEMPLATE · IG_TEMPLATE2 — ig.mjs send 에 그대로 넘어간다.
 //
 // 오래 걸린다(묶음당 45초 간격 → 27명이면 25분 안팎). 그래서 스스로 떨어져 나가는 작업 프로세스(--worker)를 띄우고, 이 명령은 최대 --wait 초(기본 570)까지만 기다린다.
 //   끝났으면 결과 JSON 을 내고 끝(종료 코드 0 정상 / 2 사람이 해야 함 / 3 안전 규칙으로 발송 중단 / 1 오류).
@@ -23,7 +23,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const DIR = process.env.OUTREACH_DIR || path.join(os.homedir(), "Documents", "bredy-outreach");
 const IG = process.env.SLOT_IG || path.join(HERE, "ig.mjs");        // SLOT_IG·SLOT_OUT·SLOT_RETRY_SEC 는 시험용 대체(가짜 ig.mjs 로 흐름 검사)
 const OUT = process.env.SLOT_OUT || path.join(HERE, "outreach.mjs");
-const ACCOUNT = process.env.IG_ACCOUNT || "bredy_breeder";
+const ACCOUNT = process.env.IG_ACCOUNT || "bredy_official";
 const STATE_DIR = path.join(DIR, "slot-state");
 const STATE = path.join(STATE_DIR, `${ACCOUNT}.json`);
 const LOGF = path.join(STATE_DIR, `${ACCOUNT}.log`);
