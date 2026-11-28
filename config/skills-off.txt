@@ -1,0 +1,18 @@
+# 꺼 둔 스킬 목록. 매 세션 스킬 설명이 전부 실리므로 안 쓰는 스킬을 끈다. 폴더는 남는다.
+# 다시 켜려면 줄을 지우고 scripts/sync-skills.sh 를 돌린다.
+# 2026-11-28: 30일 안 쓴 개인 스킬 66개는 저장소에서 지웠다(git 기록에 남음, 목록 references/removed-skills-2026-11-28.md).
+# 회사(bhsn) 스킬 — 사용자 확인 전까지 끄기만 한다
+bhsn-synapse
+cue-app-be
+jira-ticket-branch
+kickoff
+qa-testcase-gen
+init-bhsn
+reference-driven-dev
+# Paseo(맥 자동화를 Claude 앱 예약으로 옮겨 안 씀)
+paseo
+paseo-advisor
+paseo-committee
+paseo-handoff
+paseo-help
+paseo-plugin

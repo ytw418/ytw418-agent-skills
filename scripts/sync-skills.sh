@@ -28,8 +28,40 @@ timestamp() {
   date +"%Y%m%d-%H%M%S"
 }
 
+SKILLS_OFF_FILE="$REPO_ROOT/config/skills-off.txt"
+
+# config/skills-off.txt 에 적힌 스킬은 연결하지 않는다(폴더는 저장소에 그대로 둔다).
+# 매 세션 스킬 설명이 모두 실려 토큰을 쓰므로, 30일 넘게 안 쓴 스킬은 여기에 적어 끈다.
+is_skill_off() {
+  [[ -f "$SKILLS_OFF_FILE" ]] || return 1
+  grep -qxF "$1" <(sed -e 's/#.*//' -e 's/[[:space:]]*$//' "$SKILLS_OFF_FILE")
+}
+
 list_personal_skill_paths() {
-  find "$PERSONAL_SKILLS_DIR" -mindepth 1 -maxdepth 1 -type d | sort
+  find "$PERSONAL_SKILLS_DIR" -mindepth 1 -maxdepth 1 -type d | sort | while IFS= read -r p; do
+    is_skill_off "$(basename "$p")" || printf '%s\n' "$p"
+  done
+}
+
+# 저장소에서 지운 스킬의 끊어진 링크를 걷어 낸다.
+remove_dangling_links() {
+  local dir="$1" l
+  [[ -d "$dir" ]] || return 0
+  for l in "$dir"/*; do
+    if [[ -L "$l" && ! -e "$l" ]]; then rm "$l"; log "Removed dangling $l"; fi
+  done
+}
+
+remove_off_skill_links() {
+  local target_dir="$1"
+  remove_dangling_links "$target_dir"
+  [[ -f "$SKILLS_OFF_FILE" && -d "$target_dir" ]] || return 0
+  sed -e 's/#.*//' -e 's/[[:space:]]*$//' "$SKILLS_OFF_FILE" | while IFS= read -r name; do
+    [[ -n "$name" && -L "$target_dir/$name" ]] || continue
+    case "$(readlink "$target_dir/$name")" in
+      "$PERSONAL_SKILLS_DIR"/*) rm "$target_dir/$name"; log "Unlinked off skill $target_dir/$name" ;;
+    esac
+  done
 }
 
 write_state() {
@@ -118,6 +150,7 @@ sync_personal_skills_into_target() {
   local run_ts="$3"
 
   mkdir -p "$target_dir"
+  remove_off_skill_links "$target_dir"
 
   while IFS= read -r skill_path; do
     local skill_name
@@ -136,6 +169,7 @@ link_skill_set_into_runtime() {
     local skill_name
     skill_name="$(basename "$skill_path")"
     rm -rf "$runtime_dir/$skill_name"
+    is_skill_off "$skill_name" && continue
     ln -s "$skill_path" "$runtime_dir/$skill_name"
   done
 }
@@ -151,6 +185,7 @@ sync_claude_overlay() {
   # 아직 main 에 없는 작업 중 스킬 링크까지 사라진다. 저장소에 있는 스킬 이름만 새로 연결하고 나머지는 그대로 둔다.
   mkdir -p "$CLAUDE_RUNTIME_DIR"
 
+  remove_dangling_links "$CLAUDE_RUNTIME_DIR"
   link_skill_set_into_runtime "$claude_base" "$CLAUDE_RUNTIME_DIR"
   link_skill_set_into_runtime "$PERSONAL_SKILLS_DIR" "$CLAUDE_RUNTIME_DIR"
 
