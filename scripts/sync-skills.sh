@@ -43,8 +43,18 @@ list_personal_skill_paths() {
   done
 }
 
+# 저장소에서 지운 스킬의 끊어진 링크를 걷어 낸다.
+remove_dangling_links() {
+  local dir="$1" l
+  [[ -d "$dir" ]] || return 0
+  for l in "$dir"/*; do
+    if [[ -L "$l" && ! -e "$l" ]]; then rm "$l"; log "Removed dangling $l"; fi
+  done
+}
+
 remove_off_skill_links() {
   local target_dir="$1"
+  remove_dangling_links "$target_dir"
   [[ -f "$SKILLS_OFF_FILE" && -d "$target_dir" ]] || return 0
   sed -e 's/#.*//' -e 's/[[:space:]]*$//' "$SKILLS_OFF_FILE" | while IFS= read -r name; do
     [[ -n "$name" && -L "$target_dir/$name" ]] || continue
@@ -175,6 +185,7 @@ sync_claude_overlay() {
   # 아직 main 에 없는 작업 중 스킬 링크까지 사라진다. 저장소에 있는 스킬 이름만 새로 연결하고 나머지는 그대로 둔다.
   mkdir -p "$CLAUDE_RUNTIME_DIR"
 
+  remove_dangling_links "$CLAUDE_RUNTIME_DIR"
   link_skill_set_into_runtime "$claude_base" "$CLAUDE_RUNTIME_DIR"
   link_skill_set_into_runtime "$PERSONAL_SKILLS_DIR" "$CLAUDE_RUNTIME_DIR"
 
